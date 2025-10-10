@@ -1,1 +1,0 @@
-# distributed_text_editor
