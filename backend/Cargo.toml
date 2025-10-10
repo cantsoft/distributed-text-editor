@@ -1,0 +1,15 @@
+[package]
+name = "backend"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+tokio = {version = "1.47.1", features = ["time", "rt-multi-thread"] }
+napi = { version = "3.3.0", features = ["tokio_rt"] }
+napi-derive = "3.2.5"
+
+[build-dependencies]
+napi-build = "2.2.3"

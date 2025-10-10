@@ -1,0 +1,15 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "build:backend": "npx napi build --release --manifest-path ../backend/Cargo.toml --package-json-path ../backend/package.json --target-dir ../backend/target -o ../frontend/native",
+    "start": "npx electron ."
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.3.1"
+  },
+  "dependencies": {
+    "electron": "^38.2.2"
+  }
+}
