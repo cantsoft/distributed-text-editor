@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+native/
+.DS_Store
+.eslintcache
+*.log*
