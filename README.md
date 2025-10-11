@@ -25,5 +25,5 @@ npm install
 
 # build the Node module and run the app
 npm run build:backend
-npm start
+npm run dev
 ```
