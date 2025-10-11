@@ -2,7 +2,8 @@ import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 
-const rust = require("../../native/index");
+import rust from "../native/index.node";
+
 
 (async () => {
   const result = await rust.delayedSum(10, 20);
