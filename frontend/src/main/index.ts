@@ -1,14 +1,14 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { app, shell, BrowserWindow} from 'electron';
+import { join } from 'path';
+import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import icon from '../../resources/icon.png?asset';
 
 function createWindow(): void {
   const main_window = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
-    autoHideMenuBar: true,
+    frame: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -35,17 +35,14 @@ app.whenReady().then(() => {
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  app.on('browser-window-created', (_, window) => { optimizer.watchWindowShortcuts(window) });
-
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'));
+  app.on('browser-window-created', (_, window) => { optimizer.watchWindowShortcuts(window); });
 
   createWindow();
 
   // On macOS it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) { createWindow(); }
   });
 });
 

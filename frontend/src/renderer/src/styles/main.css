@@ -1,0 +1,39 @@
+@import './base.css';
+
+body {
+  display: flex;
+  overflow: hidden;
+
+  align-items: center;
+  justify-content: center;
+  
+  background-size: cover;
+  user-select: none;
+}
+
+#root {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin-bottom: 80px;
+}
+
+@media (max-width: 720px) {
+  .text {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 620px) {
+  .versions {
+    display: none;
+  }
+}
+
+@media (max-width: 350px) {
+  .tip,
+  .actions {
+    display: none;
+  }
+}
