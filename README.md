@@ -19,11 +19,6 @@ To build the project make sure you have installed:
 To build the project, start off the command line in the project's root directory. Then you can use
 these commands to build and run the project:
 ```
-# build rust package
-cd backend
-cargo build
-cd ..
-
 # setup js environment
 cd frontend
 npm install
