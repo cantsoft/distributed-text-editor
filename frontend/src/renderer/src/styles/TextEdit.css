@@ -1,0 +1,26 @@
+@import url(./base.css);
+
+div.text-field {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin-top: 35px;
+
+  width: 100%;
+  height: calc(100% - 35px);
+
+  overflow-y: auto;
+
+  background-color: var(--ev-c-background);
+  color: var(--ev-c-text-1);
+
+  padding: 5px;
+
+  outline: 0px solid transparent;
+
+  caret-color: var(--ev-c-text-2);
+}
+
+::selection {
+  background-color: #6d1799;
+}

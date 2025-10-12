@@ -5,8 +5,10 @@ import { join } from 'path';
 
 function createWindow(): void {
   const main_window = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 800,
+    minWidth: 400,
+    height: 600,
+    minHeight: 300,
     show: false,
     frame: false,
     ...(process.platform === 'linux' ? { icon } : {}),
