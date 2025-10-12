@@ -1,7 +1,7 @@
-import { app, shell, BrowserWindow} from 'electron';
-import { join } from 'path';
+import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
+import { join } from 'path';
 
 function createWindow(): void {
   const main_window = new BrowserWindow({
@@ -14,6 +14,13 @@ function createWindow(): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
+  });
+
+  ipcMain.on('window:close', () => { main_window.close(); });
+  ipcMain.on('window:minimize', () => { main_window.minimize(); });
+  ipcMain.on('window:maximize', () => {
+    if (main_window.isMaximized()) { main_window.unmaximize(); }
+    else { main_window.maximize(); }
   });
 
   main_window.on('ready-to-show', () => { main_window.show() });
@@ -52,3 +59,5 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') { app.quit(); }
 });
+
+
