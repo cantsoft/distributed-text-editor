@@ -1,0 +1,93 @@
+% --------------------------------------------------------------
+%  Team Project – Weekly Report
+% --------------------------------------------------------------
+\documentclass[12pt]{article}
+
+% ---- Packages --------------------------------------------------
+\usepackage[margin=1in]{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage[T1]{fontenc}
+
+% ---- Header & Footer -----------------------------------------
+\fancyhf{}
+\fancyhead[L]{\textit{Distributed Text Editor – Weekly Report}}
+\fancyhead[R]{\today}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\pagestyle{fancy}
+\setlength{\headheight}{15pt}
+
+% ---- Title ----------------------------------------------
+\title{\Huge \textbf{Distributed Text Editor}}
+\author{%
+  Sławek Brzózka \\
+  Julian Konowalski \\
+  Jan Zadrąg \\
+  Jan Zakroczymski \\
+}
+\date{\today}
+
+% ---- Weekly counter and macro --------------------------------
+\newcounter{week}
+\newcommand{\Week}[1]{%
+  \stepcounter{week}%
+  \section{Week \arabic{week} – #1}\addcontentsline{toc}{section}{Week \arabic{week} – #1}%
+  \label{sec:week\arabic{week}}
+}
+
+% ---- Document -------------------------------------------------
+\begin{document}
+
+\maketitle
+\thispagestyle{fancy}
+\clearpage
+
+% --------------------------------------------------------------
+%  Table of Contents
+% --------------------------------------------------------------
+\tableofcontents
+\clearpage
+
+% --------------------------------------------------------------
+%  Weekly Sections
+% --------------------------------------------------------------
+\Week{Research on the subject and design decisions}
+\subsection{Problem statement}
+
+Implement concurrent text editing on a LAN network with automatic conflict resolution.
+
+\subsection{Reserch}
+
+After a preliminary review of the literature, we identified two primary approaches to collaborative text editing: \href{https://en.wikipedia.org/wiki/Operational_transformation}{Operational Transformation} (OT) and \href{https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type}{Conflict-Free Replicated Data Types} (CRDTs).
+
+Operational Transformation techniques rely on transforming concurrent operations to maintain consistency, while CRDTs achieve convergence through mathematically defined merge operations that are inherently conflict-free.
+
+Based on our analysis, we concluded that OT could be implemented effectively in \href{https://www.haskell.org/}{Haskell}, due to its strong support for functional programming and immutable data manipulation. Conversely, \href{https://www.rust-lang.org}{Rust} or \href{https://isocpp.org/}{C++} are better suited for implementing CRDTs because of their expressive and safe type systems, which facilitate the design of efficient and reliable data structures.
+
+After considering the characteristics of both approaches, we decided to base our implementation on CRDTs, as they are more naturally aligned with distributed systems and simpler to maintain in decentralized environments.
+
+\subsection{Technological Stack}
+
+The high susceptibility to errors in distributed systems was one of the main arguments for choosing Rust, which provides a strong and expressive type system. The main disadvantage of this choice was our limited prior experience with the language.
+
+Another important consideration was the implementation of communication between users. Both candidate languages offered mature networking solutions: \href{https://think-async.com/Asio/}{Asio} for C++ and \href{https://tokio.rs/}{Tokio} for Rust. Both met our requirements, and although we had no prior experience with Tokio, the available examples suggested that it is relatively straightforward to use.
+
+The next decision concerned the graphical user interface (GUI). In the case of C++, the natural choice would have been \href{https://www.qt.io}{Qt}. Its advantage lies in keeping the entire codebase in one language. However, Qt turned out to be less flexible for our needs — especially regarding multi-cursor support — and its internal text data structures were incompatible with our CRDT model, which would have required maintaining duplicate data.
+
+For these reasons, we decided to use Rust for the core logic and \href{https://react.dev}{React} + \href{https://www.electronjs.org}{Electron} for the GUI layer. We experimented with two integration approaches: compiling Rust to WebAssembly using \href{https://github.com/drager/wasm-pack}{wasm-pack}, and building a C-style shared library to be consumed from \href{https://nodejs.org/en}{Node.js} via \href{https://napi.rs/}{napi-rs}. Both approaches presented technical difficulties, but we preliminarily chose napi-rs due to its superior performance, despite its lower portability.
+
+\subsection{UI Layout Prototype}
+
+We implemented a preliminary version of the graphical user interface consisting of two main components: Taskbar and TextEdit.
+
+The Taskbar handles window control, providing a draggable area and three buttons for minimizing, maximizing, and closing the window. It also manages the main application menus. Keyboard shortcuts are already connected to system alerts and will be integrated with backend functionality at a later stage.
+
+The TextEdit component is currently based on a standard editable HTML <div> element, which enables direct text editing. Although this may not be the final solution, it serves as a functional prototype for further development.
+
+The interface uses a dark theme, styled with CSS, and includes a GLSL fragment shader used as a visual backdrop for the TextEdit component.
+
+All GUI-related code is maintained in a separate branch (GUI). A pull request has been created and merged into the main branch after resolving conflicts. The GUI branch has been kept for future work, including backend integration and potential adjustments to frontend logic.
+
+\end{document}
