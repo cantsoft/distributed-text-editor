@@ -2,12 +2,12 @@ import wikipediaapi
 import requests
 import json
 from data_types import letter
-from wikipedia_data import get_pages_from_sub_links, get_pages
+from wikipedia_data import  get_pages
 
 NUMBER_OF_CHARACTERS = 1000
 NUMBER_OF_ARTICLES = 10
 
-def create_test_dataset(filename: str, num_char: int = 1000, type_of_problem: str = "adding" ) -> None:
+def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: str = "adding" ) -> None:
     """this function creates a test dataset from wikipedia article and saves it to a json file
     
     param filename: 
@@ -20,37 +20,36 @@ def create_test_dataset(filename: str, num_char: int = 1000, type_of_problem: st
             "timestamps" - dataset that test for removing or adding characters in the same timestamp
     return: None"""
 
-    
-    pages = get_pages(num_of_articles=NUMBER_OF_ARTICLES)
-    
-    text = pages[0].text
-    if num_char > len(pages[0].text):
-        for page in pages[1:]:
-            text += page.text
-            if len(text) >= num_char:
-                break
+    filename = filename_
 
+    pages = get_pages(num_of_articles=NUMBER_OF_ARTICLES)
+    text = ""
     
-    
+    for page in pages:
+        text += page.text
+        if len(text) >= num_char:
+            break
+
     
     letters = []
-    site_id = 1
-    user_id = 1
-    timestamp = 1
+
 
     if type_of_problem == "adding":
+        site_id = 1
+        user_id = 1
+        timestamp = 1
         for i in range(min(num_char, len(text))):
             letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             timestamp += 1
-            for pos, char in enumerate(text):
-                l = letter(char, pos=pos)
-                letters.append(l.to_json())
+             
+                
+        filename = filename + "_adding.json"
+                
+        # # zapis do pliku w formacie JSON
+        # with open("letters.json", "w", encoding="utf-8") as f:
+        #     json.dump(letters, f, ensure_ascii=False, indent=2)
 
-                # zapis do pliku w formacie JSON
-                with open("letters.json", "w", encoding="utf-8") as f:
-                    json.dump(letters, f, ensure_ascii=False, indent=2)
-
-                print(f"Zapisano {len(letters)} liter do pliku letters.json ✅")
+        print(f"Zapisano {len(letters)} liter do pliku letters.json ✅")
 
     elif type_of_problem == "deleting":
         for i in range(min(num_char, len(text))):
@@ -73,3 +72,9 @@ def create_test_dataset(filename: str, num_char: int = 1000, type_of_problem: st
 
     with open(filename, "w", encoding="utf-8") as f:
         json.dump([letter.to_json() for letter in letters], f, ensure_ascii=False, indent=4)
+
+
+
+
+if __name__ == "__main__":
+    create_test_dataset("test_dataset", num_char=NUMBER_OF_CHARACTERS, type_of_problem="adding")

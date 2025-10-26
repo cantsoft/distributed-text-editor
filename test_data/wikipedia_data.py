@@ -4,7 +4,7 @@ import json
 from data_types import letter
 
 
-def get_pages_from_sub_links(page, n : int) -> list:
+def get_pages_from_sub_links(page, n : int, wiki_wiki : wikipediaapi.Wikipedia) -> list:
     """this function gets all sublinks from a given page recursively and loads it into wipiediaapi wraper
     
     param page: 
@@ -68,7 +68,7 @@ def get_pages(article_title : str = 'US history', num_of_articles : int = 10) ->
     pages.append(page_py)
 
 
-    pages += get_pages_from_sub_links(page_py, num_of_articles - 1)
+    pages += get_pages_from_sub_links(page_py, num_of_articles - 1, wiki_wiki)
         
     
     
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     # print("Page - tet: %s" % page_py.text)
 
-    pages += get_pages_from_sub_links(page_py, 2)
+    pages += get_pages_from_sub_links(page_py, 2, wiki_wiki=wiki_wiki)
 
     # for p in pages:
     #     print("Page title: %s" % p.title)
