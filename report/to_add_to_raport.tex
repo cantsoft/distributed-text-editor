@@ -1,0 +1,33 @@
+\section{Wikipedia Data Extraction and Dataset Generation}
+
+The provided code implements functionality for retrieving Wikipedia pages and generating datasets based on the textual content of these pages. The implementation uses the \texttt{wikipediaapi} library to access Wikipedia articles and the \texttt{requests} library to perform API-based search queries.
+
+\subsection{Retrieving Wikipedia Pages}
+
+The function \texttt{get\_pages\_from\_sub\_links(page, n, wiki\_wiki)} recursively extracts up to \texttt{n} linked Wikipedia pages starting from an initial Wikipedia page. It iterates through the page's outgoing links, loads each linked page, and stores it in a list. If fewer than \texttt{n} links are found at the current level, the recursion continues with the last valid subpage.
+
+The function \texttt{get\_pages(article\_title, num\_of\_articles)} performs an initial search for a Wikipedia article using the Wikimedia REST API. It retrieves the first matching page and subsequently expands the set of pages by calling \texttt{get\_pages\_from\_sub\_links}. The result is a list of related Wikipedia pages.
+
+\subsection{Extracting Text and Converting to Letter Objects}
+
+Each page’s textual content is concatenated until a desired number of characters is reached. Individual characters are then converted into instances of the custom \texttt{letter} class, which represents changes to text in an abstract editing model. Each letter object stores:
+\begin{itemize}
+    \item the character itself,
+    \item its position,
+    \item site identifier,
+    \item (optional) user identifier,
+    \item (optional) timestamp,
+    \item type of editing operation (insertion ``i'' or deletion ``d'').
+\end{itemize}
+
+\subsection{Dataset Generation}
+
+The function \texttt{create\_test\_dataset(...)} generates datasets representing different types of editing processes:
+\begin{itemize}
+    \item \textbf{Adding}: characters are sequentially inserted,
+    \item \textbf{Deleting}: characters are inserted in reverse order and marked as deletions,
+    \item \textbf{Mixed}: alternating insertion and deletion operations,
+    \item \textbf{Timestamps}: characters may share timestamps to simulate simultaneous edits.
+\end{itemize}
+
+The resulting dataset is saved as a JSON file containing serialized \texttt{letter} objects. This dataset may be used to test our algorithm for collaborative text editing.
