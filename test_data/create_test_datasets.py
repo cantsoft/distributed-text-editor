@@ -18,6 +18,8 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
             "deleting" - dataset with deleting characters
             "mixed" - dataset with both adding and deleting characters
             "timestamps" - dataset that test for removing or adding characters in the same timestamp
+            
+            
     return: None"""
 
     filename = filename_
@@ -40,22 +42,17 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         timestamp = 1
         for i in range(min(num_char, len(text))):
             letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
-            timestamp += 1
-             
-                
+            timestamp += 1                
         filename = filename + "_adding.json"
-                
-        # # zapis do pliku w formacie JSON
-        # with open("letters.json", "w", encoding="utf-8") as f:
-        #     json.dump(letters, f, ensure_ascii=False, indent=2)
-
-        print(f"Zapisano {len(letters)} liter do pliku letters.json ✅")
-
     elif type_of_problem == "deleting":
-        for i in range(min(num_char, len(text))):
-            letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+        site_id = 1
+        user_id = 1
+        timestamp = 1
+        text_inverted = text[::-1]  
+        for i in range(min(num_char, len(text_inverted))):
+            letters.append(letter(char=text_inverted[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
             timestamp += 1
-
+        filename = filename + "_deleting.json"
     elif type_of_problem == "mixed":
         for i in range(min(num_char, len(text))):
             if i % 2 == 0:
@@ -73,8 +70,11 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
     with open(filename, "w", encoding="utf-8") as f:
         json.dump([letter.to_json() for letter in letters], f, ensure_ascii=False, indent=4)
 
+    print(f"Zapisano {len(letters)} liter do pliku {filename} ✅")
+
+
 
 
 
 if __name__ == "__main__":
-    create_test_dataset("test_dataset", num_char=NUMBER_OF_CHARACTERS, type_of_problem="adding")
+    create_test_dataset("test_dataset", num_char=NUMBER_OF_CHARACTERS, type_of_problem="deleting")
