@@ -13,7 +13,7 @@ The function \texttt{get\_pages(article\_title, num\_of\_articles)} performs an 
 Each page’s textual content is concatenated until a desired number of characters is reached. Individual characters are then converted into instances of the custom \texttt{letter} class, which represents changes to text in an abstract editing model. Each letter object stores:
 \begin{itemize}
     \item the character itself,
-    \item its position,
+    \item its position relative to other instructions,
     \item site identifier,
     \item (optional) user identifier,
     \item (optional) timestamp,
@@ -24,7 +24,7 @@ Each page’s textual content is concatenated until a desired number of characte
 
 The function \texttt{create\_test\_dataset(...)} generates datasets representing different types of editing processes:
 \begin{itemize}
-    \item \textbf{Adding}: characters are sequentially inserted,
+    \item \textbf{Adding}: characters are sequentially inserted (this is only one that is implementet curently),
     \item \textbf{Deleting}: characters are inserted in reverse order and marked as deletions,
     \item \textbf{Mixed}: alternating insertion and deletion operations,
     \item \textbf{Timestamps}: characters may share timestamps to simulate simultaneous edits.

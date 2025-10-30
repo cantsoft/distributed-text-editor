@@ -2,7 +2,7 @@
 class letter:
     def __init__(self, char, pos, site_id = "en", user_id=None, timestamp=None, type_of_operation="i"):
         self.char = char
-        self.position = pos
+        self.position = pos # position in the document relative to other instrucons this means id of letter that is before this one
         self.site_id = site_id
         self.user_id = user_id # which user made the change
         self.timestamp = timestamp # time of creation
