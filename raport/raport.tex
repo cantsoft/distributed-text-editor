@@ -29,14 +29,6 @@
 }
 \date{\today}
 
-% ---- Weekly counter and macro --------------------------------
-\newcounter{week}
-\newcommand{\Week}[1]{%
-  \stepcounter{week}%
-  \section{Week \arabic{week} – #1}\addcontentsline{toc}{section}{Week \arabic{week} – #1}%
-  \label{sec:week\arabic{week}}
-}
-
 % ---- Document -------------------------------------------------
 \begin{document}
 
@@ -53,41 +45,110 @@
 % --------------------------------------------------------------
 %  Weekly Sections
 % --------------------------------------------------------------
-\Week{Research on the subject and design decisions}
+\section{Research and design decisions}
 \subsection{Problem statement}
 
 Implement concurrent text editing on a LAN network with automatic conflict resolution.
 
-\subsection{Reserch}
+\subsection{Research}
 
-After a preliminary review of the literature, we identified two primary approaches to collaborative text editing: \href{https://en.wikipedia.org/wiki/Operational_transformation}{Operational Transformation} (OT) and \href{https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type}{Conflict-Free Replicated Data Types} (CRDTs).
+After a preliminary review of the literature, we identified two primary approaches to collaborative 
+text editing: \href{https://en.wikipedia.org/wiki/Operational_transformation}{Operational Transformation}(OT) 
+and \href{https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type}{Conflict-Free Replicated Data Types}(CRDTs).
 
-Operational Transformation techniques rely on transforming concurrent operations to maintain consistency, while CRDTs achieve convergence through mathematically defined merge operations that are inherently conflict-free.
+Operational Transformation techniques rely on transforming concurrent operations to maintain consistency, 
+while CRDTs achieve convergence through mathematically defined merge operations that are inherently 
+conflict-free.
 
-Based on our analysis, we concluded that OT could be implemented effectively in \href{https://www.haskell.org/}{Haskell}, due to its strong support for functional programming and immutable data manipulation. Conversely, \href{https://www.rust-lang.org}{Rust} or \href{https://isocpp.org/}{C++} are better suited for implementing CRDTs because of their expressive and safe type systems, which facilitate the design of efficient and reliable data structures.
+Based on our analysis, we concluded that OT could be implemented effectively in \href{https://www.haskell.org/}{Haskell}, 
+due to its strong support for functional programming paradigm and immutable data manipulation. Conversely, 
+\href{https://www.rust-lang.org}{Rust} and \href{https://isocpp.org/}{C++} are better suited for implementing 
+CRDTs because of their expressive and safe type systems, which facilitate the design of efficient and 
+reliable data structures.
 
-After considering the characteristics of both approaches, we decided to base our implementation on CRDTs, as they are more naturally aligned with distributed systems and simpler to maintain in decentralized environments.
+After careful considerations, we decided to base our implementation on CRDTs, as they are better aligned 
+with distributed systems and simpler to maintain in decentralized environments.
 
 \subsection{Technological Stack}
 
-The high susceptibility to errors in distributed systems was one of the main arguments for choosing Rust, which provides a strong and expressive type system. The main disadvantage of this choice was our limited prior experience with the language.
+The high susceptibility to errors in distributed systems was one of the main arguments for choosing 
+Rust for the application's backend code, considering it's strong and expressive type system. However, 
+the most notable disadvantage of this decision was our limited experience with the language.
 
-Another important consideration was the implementation of communication between users. Both candidate languages offered mature networking solutions: \href{https://think-async.com/Asio/}{Asio} for C++ and \href{https://tokio.rs/}{Tokio} for Rust. Both met our requirements, and although we had no prior experience with Tokio, the available examples suggested that it is relatively straightforward to use.
+Another important consideration was the implementation of communication between users. Both of the considered 
+languages offer mature networking solutions: \href{https://think-async.com/Asio/}{Asio} for C++ and 
+\href{https://tokio.rs/}{Tokio} for Rust. Each met our requirements, and although we had no prior experience 
+with Tokio, the available examples presented it as a feature-rich, yet intuitive package.
 
-The next decision concerned the graphical user interface (GUI). In the case of C++, the natural choice would have been \href{https://www.qt.io}{Qt}. Its advantage lies in keeping the entire codebase in one language. However, Qt turned out to be less flexible for our needs — especially regarding multi-cursor support — and its internal text data structures were incompatible with our CRDT model, which would have required maintaining duplicate data.
+The next decision concerned the graphical user interface (GUI). In the case of C++, the natural choice 
+would have been \href{https://www.qt.io}{Qt}. Its advantage lies in keeping the entire codebase in one 
+language. However, Qt doesn't provide enough flexibility to fulfill all of our needs, especially regarding 
+multi-cursor editor support. Furthermore, its internal text data structures wouldn't allow for easy 
+integration with our custom CRDT model, resulting in data duplication and overcomplication of the codebase.
 
-For these reasons, we decided to use Rust for the core logic and \href{https://react.dev}{React} + \href{https://www.electronjs.org}{Electron} for the GUI layer. We experimented with two integration approaches: compiling Rust to WebAssembly using \href{https://github.com/drager/wasm-pack}{wasm-pack}, and building a C-style shared library to be consumed from \href{https://nodejs.org/en}{Node.js} via \href{https://napi.rs/}{napi-rs}. Both approaches presented technical difficulties, but we preliminarily chose napi-rs due to its superior performance, despite its lower portability.
+For these reasons, we decided to go with Rust for the core logic and \href{https://react.dev}{React} 
+embedded in an \href{https://www.electronjs.org}{Electron} window for the GUI layer. We experimented 
+with two integration approaches: compiling Rust to WebAssembly using \href{https://github.com/drager/wasm-pack}{wasm-pack}, 
+and building a C-style shared library to be consumed from \href{https://nodejs.org/en}{Node.js} via 
+\href{https://napi.rs/}{napi-rs}. Both approaches presented technical difficulties, but we preliminarily 
+chose napi-rs due to its superior performance, disregarding its lower portability at this stage of the 
+project.
 
 \subsection{UI Layout Prototype}
 
-We implemented a preliminary version of the graphical user interface consisting of two main components: Taskbar and TextEdit.
+We implemented a preliminary version of the GUI consisting of two main components: Taskbar and TextEdit.
 
-The Taskbar handles window control, providing a draggable area and three buttons for minimizing, maximizing, and closing the window. It also manages the main application menus. Keyboard shortcuts are already connected to system alerts and will be integrated with backend functionality at a later stage.
+The Taskbar handles window controls, providing a draggable area for moving the window around and three 
+buttons for minimizing, maximizing, and closing the window. It also manages the main application menus
+by providing a basic menu bar. 
 
-The TextEdit component is currently based on a standard editable HTML <div> element, which enables direct text editing. Although this may not be the final solution, it serves as a functional prototype for further development.
+The TextEdit component is currently based on a standard editable HTML <div> element, which enables 
+direct text editing and user action callbacks. Although this may not be the final solution, it serves 
+as a functional prototype for further development.
 
-The interface uses a dark theme, styled with CSS, and includes a GLSL fragment shader used as a visual backdrop for the TextEdit component.
+In addition to these components, we implemented basic keyboard shortcuts. For now they're all connected 
+to system alerts and will be integrated with backend functionality at a later stage.
 
-All GUI-related code is maintained in a separate branch (GUI). A pull request has been created and merged into the main branch after resolving conflicts. The GUI branch has been kept for future work, including backend integration and potential adjustments to frontend logic.
+The application has been styled with CSS to achieve a dark and responsive UI theme. TextEdit component's
+look has been further enhanced with a custom GLSL fragment shader in order to fine-tune the final presentation
+of the product.
+
+All GUI-related code has been written on a dedicated branch (GUI). A pull request has been created, 
+peer-reviewed and finally merged into the main branch after resolving the conflicts. We decided to keep 
+the dedicated GUI branch for future work, including backend integration and potential adjustments to 
+frontend logic.
+
+\section{Prototyping core data structure}
+
+\subsection{Sources}
+
+The relative simplicity of implementation and flexibility of Logoot\cite{logoot} structures in terms of deletion and even undo operations led us to adopt this approach. A known disadvantage of this method is the potentially rapid growth in index length. This problem has been addressed by an improvement known as LSEQ\cite{lseq}, which we will also try to adapt.
+
+\subsection{Index generation}
+
+Due to the fact that the target system is designed to support multi-user editing, beyond the standard logoot digits, our structure also includes a field containing the ID of the peer, as well as a timestamp for resolving conflicts in the future. For now, however, for testing purposes, both of these values are set to zero and we are focusing on generating unique identifiers. 
+
+We immediately implemented the improved allocation strategy known from LSEQ, but for now we have not used base doubling and are using a fixed base equal to \(2^{32}\).
+
+\subsection{Tree structure}
+We used an n-ary tree structure to represent our document, which is natural for our algorithm. Although its arity can be very high, it is also expected to be sparsely populated. Therefore, we used a BTreeMap to store the children in the vertices of our tree. This structure's advantage is that it can be resized relatively cheaply, without reallocation or wasting memory.
+
+Currently, only the insert operation and the pre-order tree traversal have been implemented to compile the entire document into a single string. Ultimately, these operations will be based on iterators, but the initial goal was to create a minimal example that verifies the correctness of ID generation.
+
+\begin{thebibliography}{9}
+
+\bibitem{logoot}
+Weiss, S., Urso, P., \& Molli, P. (2010).
+\textit{Logoot-Undo: Distributed Collaborative Editing System on P2P Networks}.
+IEEE Transactions on Parallel and Distributed Systems, 21(8), 1162--1174.
+\href{https://doi.org/10.1109/TPDS.2009.173}{doi:10.1109/TPDS.2009.173}.
+
+\bibitem{lseq}
+Nédelec, B., Molli, P., Mostefaoui, A., \& Desmontils, E. (2013).
+\textit{LSEQ: An adaptive structure for sequences in distributed collaborative editing}.
+In \textit{Proceedings of the 2013 ACM Symposium on Document Engineering}, 37--46.
+\href{https://doi.org/10.1145/2494266.2494278}{doi:10.1145/2494266.2494278}.
+
+\end{thebibliography}
 
 \end{document}
