@@ -41,6 +41,7 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         user_id = 1
         timestamp = 1
         for i in range(min(num_char, len(text))):
+            
             letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             timestamp += 1                
         filename = filename + "_adding.json"

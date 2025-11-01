@@ -1,2 +1,11 @@
 backend/target
 test_data/__pycached__
+raport/raport.pdf
+raport/raport.aux
+raport/raport.fdb_latexmk
+raport/raport.log
+raport/raport.out
+raport/raport.toc
+raport/raport.synctex.gz
+raport/raport.pdf
+raport/raport.fls
