@@ -1,9 +1,11 @@
 
 class letter:
-    def __init__(self, char, pos, site_id = "en", user_id=None, timestamp=None, type_of_operation="i"):
+    def __init__(self, char, pos, letter_id, user_id=None, timestamp=None, type_of_operation="i"):
         self.char = char
-        self.position = pos # position in the document relative to other instrucons this means id of letter that is before this one
-        self.site_id = site_id
+        self.position = pos 
+        """ position in the document relative to other instrucons this means 
+        id of letter that is before this one if its adding or id of letter that is to be deleted if its deleting """
+        self.id = letter_id # id of this operacion
         self.user_id = user_id # which user made the change
         self.timestamp = timestamp # time of creation
         self.type_of_operation = type_of_operation  # "i" for 'insert' or "d" for 'delete'
@@ -17,7 +19,7 @@ class letter:
         return {
             'char': self.char,
             'position': self.position,
-            'site_id': self.site_id,
+            'id': self.id,
             'user_id': self.user_id,
             'timestamp': self.timestamp,
             'type_of_operation': self.type_of_operation
