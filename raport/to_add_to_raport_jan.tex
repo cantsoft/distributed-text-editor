@@ -1,33 +1,54 @@
-\section{Wikipedia Data Extraction and Dataset Generation}
+\Week{Dataset Preparation for Synchronization Testing}
 
-The provided code implements functionality for retrieving Wikipedia pages and generating datasets based on the textual content of these pages. The implementation uses the \texttt{wikipediaapi} library to access Wikipedia articles and the \texttt{requests} library to perform API-based search queries.
+\subsection{Purpose}
 
-\subsection{Retrieving Wikipedia Pages}
+To evaluate the behavior of our distributed text editor under realistic editing conditions, we required
+a dataset that reflects natural language usage instead of artificially generated sequences. The dataset
+is intended to support testing of synchronization logic, conflict handling and convergence properties.
 
-The function \texttt{get\_pages\_from\_sub\_links(page, n, wiki\_wiki)} recursively extracts up to \texttt{n} linked Wikipedia pages starting from an initial Wikipedia page. It iterates through the page's outgoing links, loads each linked page, and stores it in a list. If fewer than \texttt{n} links are found at the current level, the recursion continues with the last valid subpage.
+\subsection{Data Source Selection}
 
-The function \texttt{get\_pages(article\_title, num\_of\_articles)} performs an initial search for a Wikipedia article using the Wikimedia REST API. It retrieves the first matching page and subsequently expands the set of pages by calling \texttt{get\_pages\_from\_sub\_links}. The result is a list of related Wikipedia pages.
-
-\subsection{Extracting Text and Converting to Letter Objects}
-
-Each page’s textual content is concatenated until a desired number of characters is reached. Individual characters are then converted into instances of the custom \texttt{letter} class, which represents changes to text in an abstract editing model. Each letter object stores:
+We chose Wikipedia as the data source due to:
 \begin{itemize}
-    \item the character itself,
-    \item its position relative to other instructions,
-    \item site identifier,
-    \item (optional) user identifier,
-    \item (optional) timestamp,
-    \item type of editing operation (insertion ``i'' or deletion ``d'').
+    \item public accessibility and a stable API for automated retrieval,
+    \item sufficiently complex and natural sentence structure,
+    \item extensive internal linking, making it easy to gather thematically related material.
 \end{itemize}
 
-\subsection{Dataset Generation}
+An initial article is located through a keyword search, and additional articles are collected by following
+internal links, resulting in a coherent yet diverse text sample.
 
-The function \texttt{create\_test\_dataset(...)} generates datasets representing different types of editing processes:
+\subsection{Text Representation}
+
+The combined article text is transformed into a sequence of elementary editing operations. Each character
+is represented as an independent entry, associated with:
 \begin{itemize}
-    \item \textbf{Adding}: characters are sequentially inserted (this is only one that is implementet curently),
-    \item \textbf{Deleting}: characters are inserted in reverse order and marked as deletions,
-    \item \textbf{Mixed}: alternating insertion and deletion operations,
-    \item \textbf{Timestamps}: characters may share timestamps to simulate simultaneous edits.
+    \item its position in the text,
+    \item the type of change (insertion or deletion),
+    \item a timestamp representing logical operation ordering.
 \end{itemize}
 
-The resulting dataset is saved as a JSON file containing serialized \texttt{letter} objects. This dataset may be used to test our algorithm for collaborative text editing.
+Since editing in our system is performed by application instances rather than multiple human users, we do
+not differentiate between user identities at this stage.
+
+\subsection{Editing Scenarios}
+
+To test synchronization behavior in different conditions, we prepared several controlled editing scenarios:
+\begin{itemize}
+    \item \textbf{Gradual text construction:} characters are added sequentially, simulating normal typing.
+    \item \textbf{Progressive text removal:} characters are removed step-by-step, simulating revision or rollback.
+    \item \textbf{Concurrent modification:} multiple operations share the same timestamp, simulating simultaneous edits.
+\end{itemize}
+
+These scenarios help evaluate whether the editor maintains a consistent document state in the presence of
+concurrent operations and conflicting modifications.
+
+\subsection{Outcome}
+
+The result is a reproducible dataset based on real text, structured as a sequence of timestamped editing
+operations. This dataset will be used in further development to:
+\begin{itemize}
+    \item assess the correctness of the synchronization algorithm,
+    \item evaluate convergence under concurrent editing conditions,
+    \item observe system behavior during large-scale modifications.
+\end{itemize}
