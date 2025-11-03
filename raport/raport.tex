@@ -192,10 +192,11 @@ is represented as an independent entry, associated with:
     \item its position in the text,
     \item the type of change (insertion or deletion),
     \item a timestamp representing logical operation ordering.
+    \item user identity (currently omitted).
 \end{itemize}
 
-Since editing in our system is performed by application instances rather than multiple human users, we do
-not differentiate between user identities at this stage.
+In curent state of development we focus on single-user editing scenarios, so all operations are assigned
+a sequential timestamp. Future iterations will introduce concurrent edits by multiple users.
 
 \subsection{Editing Scenarios}
 
@@ -207,7 +208,8 @@ To test synchronization behavior in different conditions, we prepared several co
 \end{itemize}
 
 These scenarios help evaluate whether the editor maintains a consistent document state in the presence of
-concurrent operations and conflicting modifications.
+concurrent operations and conflicting modifications. Next scenarios will include more complex patterns for example
+test multi-user interactions, and real time collaborative editing.
 
 \subsection{Outcome}
 
