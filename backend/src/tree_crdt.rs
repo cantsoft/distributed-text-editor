@@ -40,6 +40,7 @@ impl Default for TreeCRDT {
 }
 
 impl TreeCRDT {
+    // assumse path is valid and not exists yet
     pub fn insert(&mut self, path: &Vec<Position>, data: char) {
         let mut it = &mut self.root_childrens;
         for key in &path[..path.len().saturating_sub(1)] {
@@ -58,11 +59,17 @@ impl TreeCRDT {
             }),
         );
     }
+
+    // tempoprary implementation. returns string stored in tree
     pub fn collect_string(&self) -> String {
         let mut ret = String::new();
-        for (_, node) in &self.root_childrens {
-            ret += &node.collect_string();
-        }
+        self.root_childrens
+            .iter()
+            .skip(1)
+            .take(self.root_childrens.len() - 2)
+            .for_each(|(_, node)| {
+                ret += &node.collect_string();
+            });
         ret
     }
 }

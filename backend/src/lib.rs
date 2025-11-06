@@ -17,6 +17,7 @@ pub use doc::Doc;
 mod tests {
     use super::*;
 
+    // helper function to create default id from digits
     fn from_digits(digits: &Vec<u32>) -> Vec<Position> {
         digits
             .iter()
@@ -30,16 +31,17 @@ mod tests {
 
     #[test]
     pub fn id_test() {
-        let mut this_side = Side::new(123);
+        let mut this_side = Side::new(123); // represensts user. need to be mocked during testing
         let mut doc = Doc::new();
         let id = doc.generate_id(
             &from_digits(&vec![0, std::u32::MAX]),
             &from_digits(&vec![1]),
             &mut this_side,
-        );
+        ); // digits are close on purpose
         println!("{:?}", id);
     }
 
+    // forward insertion test example
     #[test]
     pub fn tree_test() {
         let mut this_side = Side::new(123);
@@ -54,5 +56,6 @@ mod tests {
         }
         let doc_str = doc.tree.collect_string();
         println!("{}", doc_str);
+        assert_eq!(doc_str, "abcdefghijklmnoprstuwxyz1234567890");
     }
 }

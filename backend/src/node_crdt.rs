@@ -20,6 +20,7 @@ impl NodeCRDT {
     pub fn max_digit(depth: u8) -> IdBase {
         1 << (4 + depth)
     }
+
     pub fn collect_string(&self) -> String {
         let mut ret = String::new();
         ret.push(self.data);

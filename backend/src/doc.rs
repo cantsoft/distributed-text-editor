@@ -7,8 +7,10 @@ use super::node_crdt::{IdBase, Position};
 use super::side::Side;
 use super::tree_crdt::TreeCRDT;
 
+// for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
 
+// use this as main structure
 #[derive(Debug)]
 pub struct Doc {
     pub tree: TreeCRDT,
@@ -24,6 +26,7 @@ impl Doc {
             boundry: 16,
         }
     }
+
     fn construct_id(
         r: Vec<u32>,
         p: &Vec<Position>,
@@ -51,6 +54,7 @@ impl Doc {
         id
     }
 
+    // use this function to generate new id between p and q
     pub fn generate_id(
         &mut self,
         p: &Vec<Position>,
