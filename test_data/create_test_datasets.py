@@ -3,6 +3,7 @@ import requests
 import json
 from data_types import letter
 from wikipedia_data import  get_pages
+import random
 
 NUMBER_OF_CHARACTERS = 1000
 NUMBER_OF_ARTICLES = 10
@@ -21,7 +22,7 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
             
             
     return: None"""
-
+    
     filename = filename_
 
     pages = get_pages(num_of_articles=NUMBER_OF_ARTICLES)
@@ -48,7 +49,29 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
                 letters.append(letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             
             timestamp += 1                
-        filename = filename + "_adding.json"
+        filename = filename + type_of_problem +".json"
+        wright_text = text[:num_char]
+        
+    elif type_of_problem == "adding_random":
+        site_id = 1
+        user_id = 1
+        timestamp = 1
+        cashe_for_letters = []
+        for i in range(min(num_char, len(text))):
+            if i == 0:
+                letters.append(letter(char=text[i], pos=i, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            elif random.random() < 0.5:
+                cashe_for_letters.append((letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i")))
+            else:
+                letters.append(letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            
+            timestamp += 1 
+                    
+        for l in cashe_for_letters:
+            insert_pos = random.randint(0, len(letters)-1)
+            letters.insert(insert_pos, l)
+               
+        filename = filename + type_of_problem +".json"
         wright_text = text[:num_char]
         
     elif type_of_problem == "deleting":
@@ -59,7 +82,7 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         for i in range(min(num_char, len(text_inverted))):
             letters.append(letter(char=text_inverted[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
             timestamp += 1
-        filename = filename + "_deleting.json"
+        filename = filename + type_of_problem +".json"
     elif type_of_problem == "mixed":
         for i in range(min(num_char, len(text))):
             if i % 2 == 0:
@@ -90,4 +113,4 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
 
 
 if __name__ == "__main__":
-    create_test_dataset("data/test_dataset", num_char=NUMBER_OF_CHARACTERS, type_of_problem="adding")
+    create_test_dataset("data/test_dataset", num_char=NUMBER_OF_CHARACTERS, type_of_problem="adding_random")

@@ -1,7 +1,7 @@
 import json
 import difflib
 
-FILENAME = "data/test_dataset_adding.json"
+FILENAME = "data/test_datasetadding_random.json"
 
 
 def reconstruct_text(ops):
@@ -12,7 +12,7 @@ def reconstruct_text(ops):
             text.append(op["char"])
             continue
         if op["type_of_operation"] == "i":
-            text.insert(op["position"], op["char"])
+            text.insert(op["position"] + 1, op["char"])
         elif op["type_of_operation"] == "d":
             if 0 <= op["position"] < len(text):
                 text.pop(op["position"])
@@ -41,8 +41,14 @@ diff_lines = difflib.unified_diff(
     lineterm=""
 )
 
-with open("debug_out/diff.txt", "w", encoding="utf-8") as out:
-    for line in diff_lines:
-        out.write(line + "\n")
 
-print("✅ Zrobione. Różnice zapisane w pliku diff.txt w folderze debug_out.")
+if next(diff_lines, None) is not None:
+    print("❌ Wykryto różnice między odtworzonym tekstem a tekstem wzorcowym.")
+    with open("debug_out/diff.txt", "w", encoding="utf-8") as out:
+        for line in diff_lines:
+            out.write(line + "\n")
+    print("✅ Zrobione. Różnice zapisane w pliku diff.txt w folderze debug_out.")
+else: 
+    print("✅ Odtworzony tekst jest identyczny z tekstem wzorcowym.")
+
+
