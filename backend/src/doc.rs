@@ -1,11 +1,11 @@
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
-use rand::{Rng, SeedableRng, rngs::StdRng};
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use std::collections::HashMap;
 
-use super::node_crdt::{IdBase, Position};
-use super::side::Side;
-use super::tree_crdt::TreeCRDT;
+use crate::types::DEFAULT_BOUNDARY;
+use crate::{Position, Side, TreeCRDT, types::IdType};
 
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
@@ -13,9 +13,9 @@ const SEED: [u8; 32] = [0; 32];
 // use this as main structure
 #[derive(Debug)]
 pub struct Doc {
-    pub tree: TreeCRDT,
-    pub strategy: HashMap<usize, bool>,
-    pub boundry: IdBase,
+    tree: TreeCRDT,
+    strategy: HashMap<usize, bool>,
+    boundry: IdType,
 }
 
 impl Doc {
@@ -23,12 +23,19 @@ impl Doc {
         Self {
             tree: TreeCRDT::default(),
             strategy: HashMap::new(),
-            boundry: 16,
+            boundry: DEFAULT_BOUNDARY,
         }
     }
 
+    pub fn tree(&self) -> &TreeCRDT {
+        &self.tree
+    }
+    pub fn tree_mut(&mut self) -> &mut TreeCRDT {
+        &mut self.tree
+    }
+
     fn construct_id(
-        r: Vec<u32>,
+        r: Vec<IdType>,
         p: &Vec<Position>,
         q: &Vec<Position>,
         side: &mut Side,
@@ -63,7 +70,7 @@ impl Doc {
     ) -> Vec<Position> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
-        let boundry = BigInt::new(Sign::Plus, vec![self.boundry]);
+        let boundary = BigInt::new(Sign::Plus, vec![self.boundry]);
         let mut depth = 0;
         let mut p_it = p.iter();
         let mut q_it = q.iter();
@@ -77,7 +84,7 @@ impl Doc {
             interval = &q_pref - &p_pref - 1;
             println!("{}: {:?} {:?} {:?}", depth, p_pref, q_pref, interval);
         }
-        let step = std::cmp::min(boundry, interval)
+        let step = std::cmp::min(boundary, interval)
             .to_u64_digits()
             .1
             .first()

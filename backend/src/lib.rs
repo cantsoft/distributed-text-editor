@@ -1,24 +1,25 @@
+mod doc;
+mod node_crdt;
+mod side;
+mod tree_crdt;
+mod types;
+
+pub use doc::Doc;
+use node_crdt::Position;
+use side::Side;
+use tree_crdt::TreeCRDT;
+
 // use napi_derive::napi;
 // use tokio::time::sleep;
 
-mod side;
-pub use side::Side;
-
-mod node_crdt;
-pub use node_crdt::{NodeCRDT, Position};
-
-mod tree_crdt;
-pub use tree_crdt::TreeCRDT;
-
-mod doc;
-pub use doc::Doc;
-
 #[cfg(test)]
 mod tests {
+    use crate::types::IdType;
+
     use super::*;
 
     // helper function to create default id from digits
-    fn from_digits(digits: &Vec<u32>) -> Vec<Position> {
+    fn from_digits(digits: &Vec<IdType>) -> Vec<Position> {
         digits
             .iter()
             .map(|digit| Position {
@@ -52,9 +53,9 @@ mod tests {
             println!("{:?} {:?} {}", new_id, eof, ch);
             new_id = doc.generate_id(&new_id, &eof, &mut this_side);
             println!("{:?}\n", new_id);
-            doc.tree.insert(&new_id, ch);
+            doc.tree_mut().insert(&new_id, ch);
         }
-        let doc_str = doc.tree.collect_string();
+        let doc_str = doc.tree().collect_string();
         println!("{}", doc_str);
         assert_eq!(doc_str, "abcdefghijklmnoprstuwxyz1234567890");
     }

@@ -1,32 +1,77 @@
 use std::collections::BTreeMap;
 
-pub type IdBase = u32;
+use crate::types::{Depth, IdType, PeerId, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Position {
-    pub digit: IdBase,
-    pub peer_id: u8,
-    pub time: u64,
+    pub digit: IdType,
+    pub peer_id: PeerId,
+    pub time: Timestamp,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeCRDT {
-    pub depth: u8,
-    pub data: char,
-    pub childrens: BTreeMap<Position, Box<NodeCRDT>>,
+    pub depth: Depth,
+    pub data: Option<char>,
+    pub children: BTreeMap<Position, Box<NodeCRDT>>,
 }
 
 impl NodeCRDT {
-    pub fn max_digit(depth: u8) -> IdBase {
+    pub fn new(depth: Depth, data: Option<char>) -> Self {
+        Self {
+            depth,
+            data,
+            children: BTreeMap::new(),
+        }
+    }
+
+    pub fn max_digit(depth: Depth) -> IdType {
         1 << (4 + depth)
     }
 
-    pub fn collect_string(&self) -> String {
-        let mut ret = String::new();
-        ret.push(self.data);
-        for (_, node) in &self.childrens {
-            ret += &node.collect_string();
+    pub fn iter<'a>(&'a self) -> NodeCRDTIterator<'a> {
+        NodeCRDTIterator::new(self)
+    }
+
+    pub fn insert(&mut self, path: &[Position], data: char) {
+        match path {
+            [head] => {
+                self.children
+                    .insert(*head, Box::new(NodeCRDT::new(1 + self.depth, Some(data))));
+            }
+            // we don't handle empty chars in tree now
+            [head, tail @ ..] => {
+                let child = self.children.get_mut(head).unwrap();
+                child.insert(tail, data);
+            }
+            [] => unreachable!(),
         }
-        ret
+    }
+}
+
+pub struct NodeCRDTIterator<'a> {
+    stack: Vec<&'a NodeCRDT>,
+}
+
+impl<'a> NodeCRDTIterator<'a> {
+    fn new(root: &'a NodeCRDT) -> Self {
+        let mut stack = Vec::new();
+        stack.push(root);
+        Self { stack }
+    }
+}
+
+impl<'a> Iterator for NodeCRDTIterator<'a> {
+    type Item = &'a NodeCRDT;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(node) = self.stack.pop() {
+            for (_, child) in node.children.iter().rev() {
+                self.stack.push(child);
+            }
+            Some(node)
+        } else {
+            None
+        }
     }
 }
