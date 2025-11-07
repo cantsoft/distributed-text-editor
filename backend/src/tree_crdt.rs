@@ -33,6 +33,22 @@ impl Default for TreeCRDT {
 }
 
 impl TreeCRDT {
+    pub fn bos_path(&self) -> Vec<Position> {
+        vec![Position {
+            digit: MIN_POSITION_DIGIT,
+            peer_id: 0,
+            time: 0,
+        }]
+    }
+
+    pub fn eos_path(&self) -> Vec<Position> {
+        vec![Position {
+            digit: MAX_POSITION_DIGIT,
+            peer_id: 0,
+            time: 0,
+        }]
+    }
+
     // assumse path is valid and not exists yet
     pub fn insert(&mut self, path: &Vec<Position>, data: char) {
         self.root.insert(path, data);
