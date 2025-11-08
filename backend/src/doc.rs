@@ -4,6 +4,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::cmp::min;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::types::DEFAULT_BOUNDARY;
 use crate::{Position, Side, TreeCRDT, types::IdType};
@@ -38,10 +39,10 @@ impl Doc {
     // use this function to generate new id between p and q
     pub fn generate_id(
         &mut self,
-        p: &Vec<Position>,
-        q: &Vec<Position>,
+        p: &[Position],
+        q: &[Position],
         side: &mut Side,
-    ) -> Vec<Position> {
+    ) -> Arc<[Position]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
         let (interval, p_pref, q_pref) = Self::find_interval(p, q);
@@ -69,12 +70,12 @@ impl Doc {
             .into_iter()
             .chain(std::iter::repeat_n(0, depth.saturating_sub(len)))
             .rev()
-            .collect();
+            .collect::<Vec<IdType>>();
         println!("digits: {:?}", digits);
-        Self::construct_id(digits, p, q, side)
+        Self::construct_id(&digits, p, q, side)
     }
 
-    fn find_interval(p: &Vec<Position>, q: &Vec<Position>) -> (BigInt, BigInt, BigInt) {
+    fn find_interval(p: &[Position], q: &[Position]) -> (BigInt, BigInt, BigInt) {
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
         let (mut interval, mut p_pref, mut q_pref) = (BigInt::ZERO, BigInt::ZERO, BigInt::ZERO);
         while interval < BigInt::one() {
@@ -86,11 +87,11 @@ impl Doc {
     }
 
     fn construct_id(
-        r: Vec<IdType>,
-        p: &Vec<Position>,
-        q: &Vec<Position>,
+        r: &[IdType],
+        p: &[Position],
+        q: &[Position],
         side: &mut Side,
-    ) -> Vec<Position> {
+    ) -> Arc<[Position]> {
         println!("{:?}", r);
         let mut once = true;
         let time = side.time_inc();
@@ -99,12 +100,12 @@ impl Doc {
         for digit in r {
             let (p_opt, q_opt) = (p_it.next(), q_it.next());
             let pos = match (p_opt, q_opt) {
-                (Some(p), _) if digit == p.digit => p.clone(),
-                (_, Some(q)) if digit == q.digit => q.clone(),
+                (Some(p), _) if *digit == p.digit => p.clone(),
+                (_, Some(q)) if *digit == q.digit => q.clone(),
                 _ => {
                     once = if once { false } else { unreachable!() }; // temporary safeguard
                     Position {
-                        digit,
+                        digit: *digit,
                         peer_id: side.peer_id,
                         time: time,
                     }
@@ -112,6 +113,6 @@ impl Doc {
             };
             id.push(pos);
         }
-        id
+        id.into()
     }
 }

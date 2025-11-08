@@ -1,6 +1,6 @@
-use crate::types::{MAX_POSITION_DIGIT, MIN_POSITION_DIGIT};
-
 use crate::node_crdt::{NodeCRDT, Position};
+use crate::types::{MAX_POSITION_DIGIT, MIN_POSITION_DIGIT};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct TreeCRDT {
@@ -33,29 +33,29 @@ impl Default for TreeCRDT {
 }
 
 impl TreeCRDT {
-    pub fn bos_path(&self) -> Vec<Position> {
-        vec![Position {
+    pub fn bos_path(&self) -> Arc<[Position]> {
+        Arc::from([Position {
             digit: MIN_POSITION_DIGIT,
             peer_id: 0,
             time: 0,
-        }]
+        }])
     }
 
-    pub fn eos_path(&self) -> Vec<Position> {
-        vec![Position {
+    pub fn eos_path(&self) -> Arc<[Position]> {
+        Arc::from([Position {
             digit: MAX_POSITION_DIGIT,
             peer_id: 0,
             time: 0,
-        }]
+        }])
     }
 
     // assumse path is valid and not exists yet
-    pub fn insert(&mut self, path: &Vec<Position>, data: char) {
+    pub fn insert(&mut self, path: &[Position], data: char) {
         self.root.insert(path, data);
     }
 
     // assumse path is valid and exists yet
-    pub fn remove(&mut self, path: &Vec<Position>) {
+    pub fn remove(&mut self, path: &[Position]) {
         self.root.remove(path);
     }
 
