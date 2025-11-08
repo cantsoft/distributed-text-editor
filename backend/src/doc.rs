@@ -54,11 +54,9 @@ impl Doc {
             .copied()
             .unwrap_or_default();
         let val = 1 + rng.random_range(0..step);
-        println!("step {:?} rand {:?}", step, val);
         if !self.strategy.contains_key(&depth) {
             self.strategy.insert(depth, rng.random_bool(0.5));
         }
-        println!("pq: {:?}", (&p_pref).to_u32_digits().1);
         let digits = if self.strategy[&depth] {
             (&p_pref + val).to_u32_digits().1
         } else {
@@ -70,7 +68,6 @@ impl Doc {
             .chain(std::iter::repeat_n(0, depth.saturating_sub(len)))
             .rev()
             .collect::<Vec<IdType>>();
-        println!("digits: {:?}", digits);
         Self::construct_id(&digits, p, q, side)
     }
 
@@ -93,7 +90,6 @@ impl Doc {
         q: &[Position],
         side: &mut Side,
     ) -> Arc<[Position]> {
-        println!("{:?}", r);
         let mut once = true;
         let time = side.time_inc();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
