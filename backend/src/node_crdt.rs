@@ -33,16 +33,29 @@ impl NodeCRDT {
         NodeCRDTIterator::new(self)
     }
 
+    // we don't handle empty chars in tree now
     pub fn insert(&mut self, path: &[Position], data: char) {
         match path {
             [head] => {
                 self.children
                     .insert(*head, Box::new(NodeCRDT::new(1 + self.depth, Some(data))));
             }
-            // we don't handle empty chars in tree now
             [head, tail @ ..] => {
-                let child = self.children.get_mut(head).unwrap();
+                let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
                 child.insert(tail, data);
+            }
+            [] => unreachable!(),
+        }
+    }
+
+    pub fn remove(&mut self, path: &[Position]) {
+        match path {
+            [head] => {
+                self.children.remove(head);
+            }
+            [head, tail @ ..] => {
+                let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
+                child.remove(tail);
             }
             [] => unreachable!(),
         }

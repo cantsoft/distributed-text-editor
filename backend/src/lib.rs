@@ -31,7 +31,7 @@ mod tests {
 
     // forward insertion test example
     #[test]
-    pub fn tree_test() {
+    pub fn insert_collect_test() {
         let mut this_side = Side::new(123);
         let mut doc = Doc::new();
         let mut new_id = doc.tree().bos_path();
@@ -45,5 +45,27 @@ mod tests {
         let doc_str = doc.tree().collect_string();
         println!("{}", doc_str);
         assert_eq!(doc_str, "abcdefghijklmnoprstuwxyz1234567890");
+    }
+
+    #[test]
+    pub fn delete_collect_test() {
+        let mut this_side = Side::new(123);
+        let mut doc = Doc::new();
+        let mut ids = vec![];
+        let mut new_id = doc.tree().bos_path();
+        let eos = doc.tree().eos_path();
+        for ch in "abcdefghijklmnoprstuwxyz1234567890".chars() {
+            println!("{:?} {:?} {}", new_id, eos, ch);
+            new_id = doc.generate_id(&new_id, &eos, &mut this_side);
+            println!("{:?}\n", new_id);
+            doc.tree_mut().insert(&new_id, ch);
+            ids.push(new_id.clone());
+        }
+        for id in ids {
+            doc.tree_mut().remove(&id);
+        }
+        let doc_str = doc.tree().collect_string();
+        println!("{}", doc_str);
+        assert_eq!(doc_str, "");
     }
 }

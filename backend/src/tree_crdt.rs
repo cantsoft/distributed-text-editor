@@ -54,6 +54,11 @@ impl TreeCRDT {
         self.root.insert(path, data);
     }
 
+    // assumse path is valid and exists yet
+    pub fn remove(&mut self, path: &Vec<Position>) {
+        self.root.remove(path);
+    }
+
     pub fn collect_string(&self) -> String {
         self.root
             .children
