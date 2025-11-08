@@ -45,9 +45,8 @@ impl Doc {
     ) -> Arc<[Position]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
-        let (interval, p_pref, q_pref) = Self::find_interval(p, q);
+        let (interval, p_pref, q_pref, depth) = Self::find_interval(p, q);
         let boundary = BigInt::new(Sign::Plus, vec![self.boundry]);
-        let depth = p_pref.to_u32_digits().1.len();
         let step = min(boundary, interval)
             .to_u32_digits()
             .1
@@ -75,15 +74,17 @@ impl Doc {
         Self::construct_id(&digits, p, q, side)
     }
 
-    fn find_interval(p: &[Position], q: &[Position]) -> (BigInt, BigInt, BigInt) {
+    fn find_interval(p: &[Position], q: &[Position]) -> (BigInt, BigInt, BigInt, usize) {
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
         let (mut interval, mut p_pref, mut q_pref) = (BigInt::ZERO, BigInt::ZERO, BigInt::ZERO);
+        let mut depth = 0;
         while interval < BigInt::one() {
+            depth += 1;
             p_pref = (p_pref << 32) + p_it.next().map_or(0, |pos| pos.digit);
             q_pref = (q_pref << 32) + q_it.next().map_or(0, |pos| pos.digit);
             interval = &q_pref - &p_pref - 1;
         }
-        (interval, p_pref, q_pref)
+        (interval, p_pref, q_pref, depth)
     }
 
     fn construct_id(
