@@ -2,6 +2,7 @@ use num_bigint::{BigInt, Sign};
 use num_traits::One;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use std::cmp::min;
 use std::collections::HashMap;
 
 use crate::types::DEFAULT_BOUNDARY;
@@ -34,33 +35,6 @@ impl Doc {
         &mut self.tree
     }
 
-    fn construct_id(
-        r: Vec<IdType>,
-        p: &Vec<Position>,
-        q: &Vec<Position>,
-        side: &mut Side,
-    ) -> Vec<Position> {
-        println!("{:?}", r);
-        let mut p_it = p.iter();
-        let mut q_it = q.iter();
-        let mut id = vec![];
-        for digit in r {
-            let p_opt = p_it.next();
-            let q_opt = q_it.next();
-            let pos = match (p_opt, q_opt) {
-                (Some(p), _) if digit == p.digit => p.clone(),
-                (_, Some(q)) if digit == q.digit => q.clone(),
-                _ => Position {
-                    digit,
-                    peer_id: side.peer_id,
-                    time: side.time_inc(),
-                },
-            };
-            id.push(pos);
-        }
-        id
-    }
-
     // use this function to generate new id between p and q
     pub fn generate_id(
         &mut self,
@@ -70,22 +44,11 @@ impl Doc {
     ) -> Vec<Position> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
+        let (interval, p_pref, q_pref) = Self::find_interval(p, q);
         let boundary = BigInt::new(Sign::Plus, vec![self.boundry]);
-        let mut depth = 0;
-        let mut p_it = p.iter();
-        let mut q_it = q.iter();
-        let mut interval = BigInt::ZERO;
-        let mut p_pref = BigInt::ZERO;
-        let mut q_pref = BigInt::ZERO;
-        while interval < BigInt::one() {
-            depth += 1;
-            p_pref = (p_pref << 32) + p_it.next().map_or(0, |pos| pos.digit);
-            q_pref = (q_pref << 32) + q_it.next().map_or(0, |pos| pos.digit);
-            interval = &q_pref - &p_pref - 1;
-            println!("{}: {:?} {:?} {:?}", depth, p_pref, q_pref, interval);
-        }
-        let step = std::cmp::min(boundary, interval)
-            .to_u64_digits()
+        let depth = p_pref.to_u32_digits().1.len();
+        let step = min(boundary, interval)
+            .to_u32_digits()
             .1
             .first()
             .copied()
@@ -109,5 +72,46 @@ impl Doc {
             .collect();
         println!("digits: {:?}", digits);
         Self::construct_id(digits, p, q, side)
+    }
+
+    fn find_interval(p: &Vec<Position>, q: &Vec<Position>) -> (BigInt, BigInt, BigInt) {
+        let (mut p_it, mut q_it) = (p.iter(), q.iter());
+        let (mut interval, mut p_pref, mut q_pref) = (BigInt::ZERO, BigInt::ZERO, BigInt::ZERO);
+        while interval < BigInt::one() {
+            p_pref = (p_pref << 32) + p_it.next().map_or(0, |pos| pos.digit);
+            q_pref = (q_pref << 32) + q_it.next().map_or(0, |pos| pos.digit);
+            interval = &q_pref - &p_pref - 1;
+        }
+        (interval, p_pref, q_pref)
+    }
+
+    fn construct_id(
+        r: Vec<IdType>,
+        p: &Vec<Position>,
+        q: &Vec<Position>,
+        side: &mut Side,
+    ) -> Vec<Position> {
+        println!("{:?}", r);
+        let mut once = true;
+        let time = side.time_inc();
+        let (mut p_it, mut q_it) = (p.iter(), q.iter());
+        let mut id = vec![];
+        for digit in r {
+            let (p_opt, q_opt) = (p_it.next(), q_it.next());
+            let pos = match (p_opt, q_opt) {
+                (Some(p), _) if digit == p.digit => p.clone(),
+                (_, Some(q)) if digit == q.digit => q.clone(),
+                _ => {
+                    once = if once { false } else { unreachable!() }; // temporary safeguard
+                    Position {
+                        digit,
+                        peer_id: side.peer_id,
+                        time: time,
+                    }
+                }
+            };
+            id.push(pos);
+        }
+        id
     }
 }
