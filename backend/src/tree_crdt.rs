@@ -1,5 +1,6 @@
 use crate::node_crdt::{NodeCRDT, Position};
 use crate::types::{MAX_POSITION_DIGIT, MIN_POSITION_DIGIT};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -10,23 +11,38 @@ pub struct TreeCRDT {
 impl Default for TreeCRDT {
     fn default() -> Self {
         let mut new = Self {
-            root: NodeCRDT::new(0, None),
+            root: NodeCRDT {
+                data: None,
+                children: BTreeMap::new(),
+                depth: 0,
+                subtree_size: 0,
+            },
         };
         new.root.children.insert(
             Position {
                 digit: MIN_POSITION_DIGIT,
-                peer_id: 0,
+                peer_id: std::u8::MAX,
                 time: 0,
             },
-            Box::new(NodeCRDT::new(1, None)),
+            Box::new(NodeCRDT {
+                data: None,
+                children: BTreeMap::new(),
+                depth: 1,
+                subtree_size: 0,
+            }),
         );
         new.root.children.insert(
             Position {
                 digit: MAX_POSITION_DIGIT,
-                peer_id: 0,
+                peer_id: std::u8::MAX,
                 time: 0,
             },
-            Box::new(NodeCRDT::new(1, None)),
+            Box::new(NodeCRDT {
+                data: None,
+                children: BTreeMap::new(),
+                depth: 1,
+                subtree_size: 0,
+            }),
         );
         new
     }

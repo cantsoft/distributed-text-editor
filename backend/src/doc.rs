@@ -1,3 +1,4 @@
+use core::panic;
 use napi_derive::napi;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
@@ -34,12 +35,41 @@ impl Doc {
     }
 
     #[napi]
-    pub fn get_num() -> i64 {
-        34
-    }
-    #[napi]
-    pub fn get_bound(&self) -> u32 {
-        self.boundry
+    pub fn remove_absolute(&mut self, absolute_position: u32) {
+        let mut interval = absolute_position;
+        let mut current = &mut self.tree.root;
+        loop {
+            current.subtree_size -= 1;
+            let next_key = current.children.iter().find_map(|(key, node)| {
+                println!("interval: {}", interval);
+                println!("size: {}", node.subtree_size);
+                println!("ch: {:?} pos: {:?}\n", node.data, key);
+                if (interval as usize) <= node.subtree_size {
+                    Some(*key)
+                } else {
+                    interval -= node.subtree_size as u32;
+                    None
+                }
+            });
+
+            match next_key {
+                Some(key) if interval == 1 => {
+                    let to_remove = current.children.get_mut(&key).unwrap();
+                    println!("removeing: {:?}", to_remove);
+                    if to_remove.children.is_empty() {
+                        current.children.remove(&key);
+                    } else {
+                        to_remove.data = None;
+                    }
+                    break;
+                }
+                Some(key) => {
+                    interval -= 1;
+                    current = current.children.get_mut(&key).unwrap();
+                }
+                None => panic!("Position out of bounds"),
+            }
+        }
     }
 
     pub fn tree(&self) -> &TreeCRDT {
@@ -68,7 +98,7 @@ impl Doc {
             .unwrap_or_default();
         let val = 1 + rng.random_range(0..step);
         if !self.strategy.contains_key(&depth) {
-            self.strategy.insert(depth, rng.random_bool(0.5));
+            self.strategy.insert(depth, false);
         }
         let digits = if self.strategy[&depth] {
             (&p_pref + val).to_u32_digits().1
@@ -113,7 +143,11 @@ impl Doc {
                 (Some(p), _) if *digit == p.digit => p.clone(),
                 (_, Some(q)) if *digit == q.digit => q.clone(),
                 _ => {
-                    once = if once { false } else { unreachable!() }; // temporary safeguard
+                    once = if once {
+                        false
+                    } else {
+                        panic!("More than one new position generated")
+                    }; // temporary safeguard
                     Position {
                         digit: *digit,
                         peer_id: side.peer_id,

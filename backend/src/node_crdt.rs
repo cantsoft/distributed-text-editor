@@ -11,17 +11,19 @@ pub struct Position {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeCRDT {
-    pub depth: Depth,
     pub data: Option<char>,
     pub children: BTreeMap<Position, Box<NodeCRDT>>,
+    pub depth: Depth,
+    pub subtree_size: usize,
 }
 
 impl NodeCRDT {
-    pub fn new(depth: Depth, data: Option<char>) -> Self {
+    pub fn new(data: char, depth: Depth) -> Self {
         Self {
             depth,
-            data,
+            data: Some(data),
             children: BTreeMap::new(),
+            subtree_size: 1,
         }
     }
 
@@ -35,26 +37,33 @@ impl NodeCRDT {
 
     // we don't handle empty chars in tree now
     pub fn insert(&mut self, path: &[Position], data: char) {
+        self.subtree_size += 1;
         match path {
             [head] => {
                 self.children
-                    .insert(*head, Box::new(NodeCRDT::new(1 + self.depth, Some(data))));
+                    .insert(*head, Box::new(NodeCRDT::new(data, 1 + self.depth)));
             }
             [head, tail @ ..] => {
                 let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
                 child.insert(tail, data);
             }
-            [] => unreachable!(),
+            [] => panic!("Path cannot be empty"),
         }
     }
 
     pub fn remove(&mut self, path: &[Position]) {
         match path {
             [head] => {
-                self.children.remove(head);
+                let to_remove = self.children.get_mut(head).unwrap();
+                if to_remove.children.is_empty() {
+                    self.children.remove(head);
+                } else {
+                    to_remove.data = None;
+                }
             }
             [head, tail @ ..] => {
                 let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
+                child.subtree_size -= 1;
                 child.remove(tail);
             }
             [] => unreachable!(),

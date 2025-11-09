@@ -9,20 +9,11 @@ use node_crdt::Position;
 use side::Side;
 use tree_crdt::TreeCRDT;
 
-use napi_derive::napi;
-use tokio::time::{Duration, sleep};
-
-#[napi]
-pub async fn delayed_sum(a: i32, b: i32) -> i32 {
-    sleep(Duration::from_secs(2)).await;
-    a + b
-}
-
 #[cfg(test)]
 mod tests {
 
     use super::*;
-    use std::sync::Arc;
+    use std::{iter::zip, sync::Arc};
     use types::IdType;
 
     // helper function to create default id from digits
@@ -51,26 +42,53 @@ mod tests {
 
     #[test]
     pub fn insert_delete_collect_test() {
+        let test_str = "abcdefghijklmnoprstuwxyz1234567890";
         let mut this_side = Side::new(123);
         let mut doc = Doc::new();
         let mut ids = vec![];
         let mut new_id = doc.tree().bos_path();
         let eos = doc.tree().eos_path();
-        for ch in "abcdefghijklmnoprstuwxyz1234567890".chars() {
-            println!("{:?} {:?} {}", new_id, eos, ch);
+        for ch in test_str.chars() {
+            println!("ch: {}", ch);
+            println!("between: {:?}", new_id);
             new_id = doc.generate_id(&new_id, &eos, &mut this_side);
-            println!("{:?}\n", new_id);
+            println!("new_id: {:?}\n", new_id);
             doc.tree_mut().insert(&new_id, ch);
             ids.push(new_id.clone());
         }
         let doc_str = doc.tree().collect_string();
-        println!("{}", doc_str);
-        assert_eq!(doc_str, "abcdefghijklmnoprstuwxyz1234567890");
-        for id in ids {
+        assert_eq!(test_str, doc_str);
+        for (id, ch) in zip(ids, test_str.chars()) {
+            println!("ch: {}", ch);
             doc.tree_mut().remove(&id);
         }
         let doc_str = doc.tree().collect_string();
-        println!("{}", doc_str);
-        assert_eq!(doc_str, "");
+        assert_eq!("", doc_str);
+    }
+
+    #[test]
+    pub fn remove_absolute_test() {
+        let test_str = "aabbccddeeffgg";
+        let mut this_side = Side::new(123);
+        let mut doc = Doc::new();
+        let mut ids = vec![];
+        let mut new_id = doc.tree().bos_path();
+        let eos = doc.tree().eos_path();
+        for ch in test_str.chars() {
+            println!("ch: {}", ch);
+            println!("between: {:?}", new_id);
+            new_id = doc.generate_id(&new_id, &eos, &mut this_side);
+            println!("new_id: {:?}\n", new_id);
+            doc.tree_mut().insert(&new_id, ch);
+            ids.push(new_id.clone());
+        }
+        println!("tree size: {}", doc.tree().root.subtree_size);
+        for i in (1..=test_str.len()).rev() {
+            if i % 2 == 0 {
+                doc.remove_absolute(i as u32);
+            }
+        }
+        let doc_str = doc.tree().collect_string();
+        assert_eq!("abcdefg", doc_str);
     }
 }
