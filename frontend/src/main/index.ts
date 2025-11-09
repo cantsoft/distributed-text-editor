@@ -4,6 +4,7 @@ import icon from '../../resources/icon.png?asset';
 import { join } from 'path';
 
 function createWindow(): void {
+
   const main_window = new BrowserWindow({
     width: 800,
     minWidth: 400,

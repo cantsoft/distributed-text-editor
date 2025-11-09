@@ -1,11 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+const backend_api = require('../../native/index')
+
 // Custom APIs for renderer
 const api = {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),
-  close: () => ipcRenderer.send('window:close')
+  close: () => ipcRenderer.send('window:close'),
+  createDocument: () => { return new backend_api.Doc(); }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

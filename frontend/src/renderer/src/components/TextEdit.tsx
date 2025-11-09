@@ -11,9 +11,14 @@ export default function TextEdit(): React.JSX.Element {
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);
 
-    edit_ref.current.addEventListener("input", () => {
-      sandbox.setUniform("u_cursor_pos", document.getSelection()?.getRangeAt(0).startOffset);
+    edit_ref.current.addEventListener("input", (event: Event) => {
+      const input_type: string = event.inputType
+      if (input_type == "insertText") { console.log("Insert"); } 
+      else if (input_type == "deleteContentBackward" || input_type == "deleteContentForward") { console.log("Delete"); }
+ 
+      // console.log(document.getSelection()?.getRangeAt(0).startOffset);
     });
+
   }, []);
 
   return (
