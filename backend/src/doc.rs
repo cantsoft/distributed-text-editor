@@ -1,3 +1,4 @@
+use napi_derive::napi;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
 use rand::rngs::StdRng;
@@ -13,6 +14,7 @@ use crate::{Position, Side, TreeCRDT, types::IdType};
 const SEED: [u8; 32] = [0; 32];
 
 // use this as main structure
+#[napi]
 #[derive(Debug)]
 pub struct Doc {
     tree: TreeCRDT,
@@ -20,13 +22,24 @@ pub struct Doc {
     boundry: IdType,
 }
 
+#[napi]
 impl Doc {
+    #[napi(constructor)]
     pub fn new() -> Self {
         Self {
             tree: TreeCRDT::default(),
             strategy: HashMap::new(),
             boundry: DEFAULT_BOUNDARY,
         }
+    }
+
+    #[napi]
+    pub fn get_num() -> i64 {
+        34
+    }
+    #[napi]
+    pub fn get_bound(&self) -> u32 {
+        self.boundry
     }
 
     pub fn tree(&self) -> &TreeCRDT {

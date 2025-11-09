@@ -17,3 +17,6 @@ bounded-integer = "0.6.1"
 
 [build-dependencies]
 napi-build = "2.2.3"
+
+[package.metadata.napi]
+ts = true
