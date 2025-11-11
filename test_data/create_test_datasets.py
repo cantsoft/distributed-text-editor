@@ -39,7 +39,6 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
 
 
     if type_of_problem == "adding":
-        site_id = 1
         user_id = 1
         timestamp = 1
         for i in range(min(num_char, len(text))):
@@ -49,40 +48,60 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
                 letters.append(letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             
             timestamp += 1                
-        filename = filename + type_of_problem +".json"
+        filename = filename +"_"+ type_of_problem +".json"
         wright_text = text[:num_char]
         
     elif type_of_problem == "adding_random":
-        site_id = 1
         user_id = 1
         timestamp = 1
         cashe_for_letters = []
+        letter_id = 0
+        pos_letter = 0
         for i in range(min(num_char, len(text))):
             if i == 0:
-                letters.append(letter(char=text[i], pos=i, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+                letters.append(letter(char=text[i], pos=pos_letter, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             elif random.random() < 0.5:
-                cashe_for_letters.append((letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i")))
+                cashe_for_letters.append([text[i],pos_letter-1])
+                continue
             else:
-                letters.append(letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+                letters.append(letter(char=text[i], pos=pos_letter-1, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             
-            timestamp += 1 
+            
+            letter_id += 1
+            timestamp += 1  
+            pos_letter += 1
                     
-        for l in cashe_for_letters:
-            insert_pos = random.randint(0, len(letters)-1)
-            letters.insert(insert_pos, l)
-               
-        filename = filename + type_of_problem +".json"
+        for i in range(len(cashe_for_letters)):
+            # insert_pos = random.randint(0, len(letters)-1)
+            # letters.insert(insert_pos, l)
+            if i-1>=0 and cashe_for_letters[i-1][1] == cashe_for_letters[i][1] :
+                letters.append(letter(char=cashe_for_letters[i][0],pos=cashe_for_letters[i][1],
+                                  letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            else:
+                letters.append(letter(char=cashe_for_letters[i][0],pos=cashe_for_letters[i][1],
+                                  letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            
+            letter_id += 1
+            timestamp += 1  
+            pos_letter += 1
+            
+            
+
+        filename = filename +"_"+ type_of_problem +".json"
         wright_text = text[:num_char]
         
     elif type_of_problem == "deleting":
         site_id = 1
         user_id = 1
         timestamp = 1
-        text_inverted = text[::-1]  
+        # text_inverted = text[::-1]  
+        text_inverted = text
+        
         for i in range(min(num_char, len(text_inverted))):
             letters.append(letter(char=text_inverted[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
             timestamp += 1
-        filename = filename + type_of_problem +".json"
+        filename = filename +"_"+ type_of_problem +".json"
+        
     elif type_of_problem == "mixed":
         for i in range(min(num_char, len(text))):
             if i % 2 == 0:

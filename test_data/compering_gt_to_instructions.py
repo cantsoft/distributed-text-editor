@@ -1,11 +1,11 @@
 import json
 import difflib
 
-FILENAME = "data/test_datasetadding_random.json"
+FILENAME = "data/test_dataset_adding_random.json"
 
 
 def reconstruct_text(ops):
-    ops = sorted(ops, key=lambda x: x["timestamp"])
+    # ops = sorted(ops, key=lambda x: x["timestamp"])
     text = []
     for op in ops:
         if op["id"] == 0:
@@ -25,7 +25,7 @@ with open(FILENAME, "r", encoding="utf-8") as f:
 
 reconstructed = reconstruct_text(operations)
 
-print("Odtworzony tekst:")  
+print(f"Odtworzony tekst z pliku {FILENAME}:")  
 print(reconstructed)
 
 # Wczytanie tekstu wzorcowego
