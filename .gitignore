@@ -1,5 +1,5 @@
 backend/target
-test_data/__pycached__
+test_data/__pycache__
 raport/raport.pdf
 raport/raport.aux
 raport/raport.fdb_latexmk
