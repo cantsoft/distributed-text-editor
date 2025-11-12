@@ -8,8 +8,10 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::types::DEFAULT_BOUNDARY;
-use crate::{Position, Side, TreeCRDT, types::IdType};
+use crate::node::{NodeKey, NodeKind};
+use crate::side::Side;
+use crate::tree::Tree;
+use crate::types::{DEFAULT_BOUNDARY, IdType};
 
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
@@ -18,7 +20,7 @@ const SEED: [u8; 32] = [0; 32];
 #[napi]
 #[derive(Debug)]
 pub struct Doc {
-    tree: TreeCRDT,
+    tree: Tree,
     strategy: HashMap<usize, bool>,
     boundry: IdType,
 }
@@ -28,10 +30,16 @@ impl Doc {
     #[napi(constructor)]
     pub fn new() -> Self {
         Self {
-            tree: TreeCRDT::default(),
+            tree: Tree::default(),
             strategy: HashMap::new(),
             boundry: DEFAULT_BOUNDARY,
         }
+    }
+    pub fn tree(&self) -> &Tree {
+        &self.tree
+    }
+    pub fn tree_mut(&mut self) -> &mut Tree {
+        &mut self.tree
     }
 
     #[napi]
@@ -43,7 +51,7 @@ impl Doc {
             let next_key = current.children.iter().find_map(|(key, node)| {
                 println!("interval: {}", interval);
                 println!("size: {}", node.subtree_size);
-                println!("ch: {:?} pos: {:?}\n", node.data, key);
+                println!("ch: {:?} pos: {:?}\n", node.kind, key);
                 if (interval as usize) <= node.subtree_size {
                     Some(*key)
                 } else {
@@ -51,15 +59,15 @@ impl Doc {
                     None
                 }
             });
-
             match next_key {
                 Some(key) if interval == 1 => {
                     let to_remove = current.children.get_mut(&key).unwrap();
                     println!("removeing: {:?}", to_remove);
                     if to_remove.children.is_empty() {
+                        //should be function
                         current.children.remove(&key);
                     } else {
-                        to_remove.data = None;
+                        to_remove.kind = crate::node::NodeKind::Empty;
                     }
                     break;
                 }
@@ -72,20 +80,49 @@ impl Doc {
         }
     }
 
-    pub fn tree(&self) -> &TreeCRDT {
-        &self.tree
+    pub fn insert_absolute(&mut self, absolute_position: u32, data: char, side: &mut Side) {
+        let before = self.id_from_absolute(absolute_position);
+        let after = self.id_from_absolute(absolute_position);
+        let id = self.generate_id(&before, &after, side);
+        self.tree.insert(&id, data);
     }
-    pub fn tree_mut(&mut self) -> &mut TreeCRDT {
-        &mut self.tree
+
+    fn id_from_absolute(&self, absolute_position: u32) -> Arc<[NodeKey]> {
+        let mut id = vec![];
+        let mut interval = absolute_position;
+        let mut current = &self.tree.root;
+        loop {
+            let next_key = current.children.iter().find_map(|(key, node)| {
+                if (interval as usize) <= node.subtree_size {
+                    println!("interval: {}", interval);
+                    println!("size: {}", node.subtree_size);
+                    println!("ch: {:?} pos: {:?}\n", node.kind, key);
+                    Some(*key)
+                } else {
+                    interval -= node.subtree_size as u32;
+                    None
+                }
+            });
+            match next_key {
+                Some(key) if interval == 0 => {
+                    id.push(key);
+                    break;
+                }
+                Some(key) => {
+                    id.push(key);
+                    if current.kind != NodeKind::Empty {
+                        interval -= 1;
+                    }
+                    current = current.children.get(&key).unwrap();
+                }
+                None => panic!("Position out of bounds"),
+            }
+        }
+        id.into()
     }
 
     // use this function to generate new id between p and q
-    pub fn generate_id(
-        &mut self,
-        p: &[Position],
-        q: &[Position],
-        side: &mut Side,
-    ) -> Arc<[Position]> {
+    pub fn generate_id(&mut self, p: &[NodeKey], q: &[NodeKey], side: &mut Side) -> Arc<[NodeKey]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
         let (interval, p_pref, q_pref, depth) = Self::find_interval(p, q);
@@ -114,7 +151,7 @@ impl Doc {
         Self::construct_id(&digits, p, q, side)
     }
 
-    fn find_interval(p: &[Position], q: &[Position]) -> (BigInt, BigInt, BigInt, usize) {
+    fn find_interval(p: &[NodeKey], q: &[NodeKey]) -> (BigInt, BigInt, BigInt, usize) {
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
         let (mut interval, mut p_pref, mut q_pref) = (BigInt::ZERO, BigInt::ZERO, BigInt::ZERO);
         let mut depth = 0;
@@ -127,12 +164,7 @@ impl Doc {
         (interval, p_pref, q_pref, depth)
     }
 
-    fn construct_id(
-        r: &[IdType],
-        p: &[Position],
-        q: &[Position],
-        side: &mut Side,
-    ) -> Arc<[Position]> {
+    fn construct_id(r: &[IdType], p: &[NodeKey], q: &[NodeKey], side: &mut Side) -> Arc<[NodeKey]> {
         let mut once = true;
         let time = side.time_inc();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
@@ -148,7 +180,7 @@ impl Doc {
                     } else {
                         panic!("More than one new position generated")
                     }; // temporary safeguard
-                    Position {
+                    NodeKey {
                         digit: *digit,
                         peer_id: side.peer_id,
                         time: time,

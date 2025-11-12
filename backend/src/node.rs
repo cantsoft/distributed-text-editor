@@ -3,25 +3,32 @@ use std::collections::BTreeMap;
 use crate::types::{Depth, IdType, PeerId, Timestamp};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Position {
+pub struct NodeKey {
     pub digit: IdType,
     pub peer_id: PeerId,
     pub time: Timestamp,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct NodeCRDT {
-    pub data: Option<char>,
-    pub children: BTreeMap<Position, Box<NodeCRDT>>,
-    pub depth: Depth,
+#[derive(Debug, PartialEq, Eq)]
+pub enum NodeKind {
+    Root,
+    Char(char),
+    Bos,
+    Eos,
+    Empty,
+}
+
+#[derive(Debug)]
+pub struct Node {
+    pub kind: NodeKind,
+    pub children: BTreeMap<NodeKey, Box<Node>>,
     pub subtree_size: usize,
 }
 
-impl NodeCRDT {
-    pub fn new(data: char, depth: Depth) -> Self {
+impl Node {
+    pub fn new(data: char) -> Self {
         Self {
-            depth,
-            data: Some(data),
+            kind: NodeKind::Char(data),
             children: BTreeMap::new(),
             subtree_size: 1,
         }
@@ -31,17 +38,16 @@ impl NodeCRDT {
         1 << (4 + depth)
     }
 
-    pub fn iter<'a>(&'a self) -> NodeCRDTIterator<'a> {
-        NodeCRDTIterator::new(self)
+    pub fn iter<'a>(&'a self) -> PreOrderIterator<'a> {
+        PreOrderIterator::new(self)
     }
 
     // we don't handle empty chars in tree now
-    pub fn insert(&mut self, path: &[Position], data: char) {
+    pub fn insert(&mut self, path: &[NodeKey], data: char) {
         self.subtree_size += 1;
         match path {
             [head] => {
-                self.children
-                    .insert(*head, Box::new(NodeCRDT::new(data, 1 + self.depth)));
+                self.children.insert(*head, Box::new(Node::new(data)));
             }
             [head, tail @ ..] => {
                 let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
@@ -51,14 +57,14 @@ impl NodeCRDT {
         }
     }
 
-    pub fn remove(&mut self, path: &[Position]) {
+    pub fn remove(&mut self, path: &[NodeKey]) {
         match path {
             [head] => {
                 let to_remove = self.children.get_mut(head).unwrap();
                 if to_remove.children.is_empty() {
                     self.children.remove(head);
                 } else {
-                    to_remove.data = None;
+                    to_remove.kind = NodeKind::Empty;
                 }
             }
             [head, tail @ ..] => {
@@ -71,20 +77,20 @@ impl NodeCRDT {
     }
 }
 
-pub struct NodeCRDTIterator<'a> {
-    stack: Vec<&'a NodeCRDT>,
+pub struct PreOrderIterator<'a> {
+    stack: Vec<&'a Node>,
 }
 
-impl<'a> NodeCRDTIterator<'a> {
-    fn new(root: &'a NodeCRDT) -> Self {
+impl<'a> PreOrderIterator<'a> {
+    fn new(root: &'a Node) -> Self {
         let mut stack = Vec::new();
         stack.push(root);
         Self { stack }
     }
 }
 
-impl<'a> Iterator for NodeCRDTIterator<'a> {
-    type Item = &'a NodeCRDT;
+impl<'a> Iterator for PreOrderIterator<'a> {
+    type Item = &'a Node;
 
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(node) = self.stack.pop() {

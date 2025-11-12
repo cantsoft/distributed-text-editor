@@ -1,46 +1,43 @@
-use crate::node_crdt::{NodeCRDT, Position};
+use crate::node::{Node, NodeKey, NodeKind};
 use crate::types::{MAX_POSITION_DIGIT, MIN_POSITION_DIGIT};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct TreeCRDT {
-    pub root: NodeCRDT,
+pub struct Tree {
+    pub root: Node,
 }
 
-impl Default for TreeCRDT {
+impl Default for Tree {
     fn default() -> Self {
         let mut new = Self {
-            root: NodeCRDT {
-                data: None,
+            root: Node {
+                kind: NodeKind::Root,
                 children: BTreeMap::new(),
-                depth: 0,
                 subtree_size: 0,
             },
         };
         new.root.children.insert(
-            Position {
+            NodeKey {
                 digit: MIN_POSITION_DIGIT,
                 peer_id: std::u8::MAX,
                 time: 0,
             },
-            Box::new(NodeCRDT {
-                data: None,
+            Box::new(Node {
+                kind: NodeKind::Bos,
                 children: BTreeMap::new(),
-                depth: 1,
                 subtree_size: 0,
             }),
         );
         new.root.children.insert(
-            Position {
+            NodeKey {
                 digit: MAX_POSITION_DIGIT,
                 peer_id: std::u8::MAX,
                 time: 0,
             },
-            Box::new(NodeCRDT {
-                data: None,
+            Box::new(Node {
+                kind: NodeKind::Eos,
                 children: BTreeMap::new(),
-                depth: 1,
                 subtree_size: 0,
             }),
         );
@@ -48,17 +45,17 @@ impl Default for TreeCRDT {
     }
 }
 
-impl TreeCRDT {
-    pub fn bos_path(&self) -> Arc<[Position]> {
-        Arc::from([Position {
+impl Tree {
+    pub fn bos_path(&self) -> Arc<[NodeKey]> {
+        Arc::from([NodeKey {
             digit: MIN_POSITION_DIGIT,
             peer_id: 0,
             time: 0,
         }])
     }
 
-    pub fn eos_path(&self) -> Arc<[Position]> {
-        Arc::from([Position {
+    pub fn eos_path(&self) -> Arc<[NodeKey]> {
+        Arc::from([NodeKey {
             digit: MAX_POSITION_DIGIT,
             peer_id: 0,
             time: 0,
@@ -66,12 +63,12 @@ impl TreeCRDT {
     }
 
     // assumse path is valid and not exists yet
-    pub fn insert(&mut self, path: &[Position], data: char) {
+    pub fn insert(&mut self, path: &[NodeKey], data: char) {
         self.root.insert(path, data);
     }
 
     // assumse path is valid and exists yet
-    pub fn remove(&mut self, path: &[Position]) {
+    pub fn remove(&mut self, path: &[NodeKey]) {
         self.root.remove(path);
     }
 
@@ -80,7 +77,10 @@ impl TreeCRDT {
             .children
             .iter()
             .flat_map(|(_, node)| node.iter())
-            .filter_map(|node| node.data)
+            .filter_map(|node| match node.kind {
+                NodeKind::Char(ch) => Some(ch),
+                _ => None,
+            })
             .collect()
     }
 }
