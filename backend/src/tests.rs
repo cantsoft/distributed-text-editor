@@ -102,12 +102,12 @@ pub fn insert_remove_absolute_test() {
     doc.insert_absolute(3, 'd', &mut this_side);
     doc.insert_absolute(4, 'e', &mut this_side);
     doc.insert_absolute(5, 'f', &mut this_side);
-    doc.remove_absolute(0);
+    doc.remove_absolute(1);
     doc.remove_absolute(4);
-    doc.remove_absolute(0);
+    doc.remove_absolute(1);
     doc.remove_absolute(3);
-    doc.remove_absolute(0);
+    doc.remove_absolute(1);
     doc.remove_absolute(2);
     let doc_str = doc.tree().collect_string();
-    assert_eq!("e", doc_str)
+    assert_eq!("c", doc_str)
 }

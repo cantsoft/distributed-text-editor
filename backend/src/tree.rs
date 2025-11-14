@@ -26,7 +26,7 @@ impl Default for Tree {
             Box::new(Node {
                 kind: NodeKind::Bos,
                 children: BTreeMap::new(),
-                subtree_size: 0,
+                subtree_size: 1,
             }),
         );
         new.root.children.insert(
@@ -38,7 +38,7 @@ impl Default for Tree {
             Box::new(Node {
                 kind: NodeKind::Eos,
                 children: BTreeMap::new(),
-                subtree_size: 0,
+                subtree_size: 1,
             }),
         );
         new

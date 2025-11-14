@@ -82,7 +82,7 @@ impl Doc {
 
     pub fn insert_absolute(&mut self, absolute_position: u32, data: char, side: &mut Side) {
         let before = self.id_from_absolute(absolute_position);
-        let after = self.id_from_absolute(absolute_position);
+        let after = self.id_from_absolute(1 + absolute_position);
         let id = self.generate_id(&before, &after, side);
         self.tree.insert(&id, data);
     }
@@ -93,7 +93,7 @@ impl Doc {
         let mut current = &self.tree.root;
         loop {
             let next_key = current.children.iter().find_map(|(key, node)| {
-                if (interval as usize) <= node.subtree_size {
+                if (interval as usize) < node.subtree_size {
                     println!("interval: {}", interval);
                     println!("size: {}", node.subtree_size);
                     println!("ch: {:?} pos: {:?}\n", node.kind, key);
