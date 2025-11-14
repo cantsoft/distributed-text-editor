@@ -43,13 +43,16 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         timestamp = 1
         for i in range(min(num_char, len(text))):
             if i == 0:
-                letters.append(letter(char=text[i], pos=i, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+                letters.append(letter(char=text[i], operacion_before=-1, operacion_after=None, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             else:
-                letters.append(letter(char=text[i], pos=i-1, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+                letters.append(letter(char=text[i], operacion_before=i-1, operacion_after=None, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             
             timestamp += 1                
         filename = filename +"_"+ type_of_problem +".json"
         wright_text = text[:num_char]
+        
+        
+        
         
     elif type_of_problem == "adding_random":
         user_id = 1
@@ -59,26 +62,29 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         pos_letter = 0
         for i in range(min(num_char, len(text))):
             if i == 0:
-                letters.append(letter(char=text[i], pos=pos_letter, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+                letters.append(letter(char=text[i],operacion_before=-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             elif random.random() < 0.5:
-                cashe_for_letters.append([text[i],pos_letter-1])
+                cashe_for_letters.append((text[i],letter_id-1,letter_id))
                 continue
             else:
-                letters.append(letter(char=text[i], pos=pos_letter-1, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+                letters.append(letter(char=text[i], operacion_before=pos_letter-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             
             
             letter_id += 1
             timestamp += 1  
             pos_letter += 1
-                    
+                
+        last_cashe_id = None
         for i in range(len(cashe_for_letters)):
-            # insert_pos = random.randint(0, len(letters)-1)
-            # letters.insert(insert_pos, l)
-            if i-1>=0 and cashe_for_letters[i-1][1] == cashe_for_letters[i][1] :
-                letters.append(letter(char=cashe_for_letters[i][0],pos=cashe_for_letters[i][1],
+                  
+            if i>=1 and cashe_for_letters[i-1][1] == cashe_for_letters[i][1] :
+                letters.append(letter(char=cashe_for_letters[i][0],operacion_before=last_cashe_id, 
+                                    operacion_after=cashe_for_letters[i][2],
                                   letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             else:
-                letters.append(letter(char=cashe_for_letters[i][0],pos=cashe_for_letters[i][1],
+                last_cashe_id = letter_id
+                letters.append(letter(char=cashe_for_letters[i][0],operacion_before=cashe_for_letters[i][1],
+                                       operacion_after=cashe_for_letters[i][2],
                                   letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             
             letter_id += 1
@@ -94,11 +100,11 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         site_id = 1
         user_id = 1
         timestamp = 1
-        # text_inverted = text[::-1]  
-        text_inverted = text
+        # text = text[::-1]  
+        text = text
         
-        for i in range(min(num_char, len(text_inverted))):
-            letters.append(letter(char=text_inverted[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+        for i in range(min(num_char, len(text))):
+            letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
             timestamp += 1
         filename = filename +"_"+ type_of_problem +".json"
         
@@ -131,5 +137,25 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
     print(f"Wzór tekstu zapisano do {gt_filename}")
 
 
+enumerate_test_datasets = [
+    ("data/test_dataset", "adding"),
+    ("data/test_dataset", "adding_random"),
+    # ("data/test_dataset", "deleting"),
+    # ("data/test_dataset", "mixed"),
+    # ("data/test_dataset", "timestamps"),
+]   
+
+
 if __name__ == "__main__":
-    create_test_dataset("data/test_dataset", num_char=NUMBER_OF_CHARACTERS, type_of_problem="adding_random")
+    print("Tworzenie testowego zbioru danych...")
+    for i, (path, name) in enumerate(enumerate_test_datasets):
+        print("\n")
+        create_test_dataset(path, num_char=NUMBER_OF_CHARACTERS, type_of_problem=name)
+        
+        print(f"{i}: {name} → {path}")
+    
+    print("\nWszystkie testowe zbiory danych zostały utworzone.")
+
+        
+        
+        

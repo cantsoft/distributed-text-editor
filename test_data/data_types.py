@@ -1,10 +1,21 @@
 
+"""TODO : pozycja względmna przed i po 
+   pozycja bezwzględna w dokumencie"""
+
+
+
 class letter:
-    def __init__(self, char, pos, letter_id, user_id=None, timestamp=None, type_of_operation="i"):
+    def __init__(self, char, operacion_before : int, operacion_after : int , letter_id, user_id=None, timestamp=None, type_of_operation="i"):
         self.char = char
-        self.position = pos 
-        """ position in the document relative to other instrucons this means 
-        id of letter that is before this one if its adding or id of letter that is to be deleted if its deleting """
+        self.relative_position = (operacion_before, operacion_after) 
+        """operacion_before: operation id before the character in the document
+            operacion_after: operation id after the character in the document  
+            this position is relative to other letters positions and it is set as id operation before and after this one   
+            
+            if pos_before == -1 it means BOF (beginning of file)
+            if pos_after == None it means EOF (end of file)
+        """
+        
         self.id = letter_id # id of this operacion
         self.user_id = user_id # which user made the change
         self.timestamp = timestamp # time of creation
@@ -18,7 +29,7 @@ class letter:
     def to_json(self):
         return {
             'char': self.char,
-            'position': self.position,
+            'relative_position': self.relative_position,
             'id': self.id,
             'user_id': self.user_id,
             'timestamp': self.timestamp,

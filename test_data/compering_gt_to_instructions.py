@@ -1,29 +1,80 @@
 import json
 import difflib
 
+def reconstruct_string(letters_json):
+    inserts = [op for op in letters_json if op["type_of_operation"] == "i"]
+    by_id = {op["id"]: op for op in inserts}
+
+    order = []               # final ordered list of letter IDs
+    remaining = set(by_id)   # IDs of letters that still need to be placed
+    last_size = -1
+
+    # Keep trying to place letters until nothing changes
+    while remaining and last_size != len(remaining):
+        last_size = len(remaining)
+        placed = []
+
+        for op_id in list(remaining):
+            op = by_id[op_id]
+            before, after = op["relative_position"]
+
+            # 1) ---------------- BOF → EOF (single isolated letter)
+            if before == -1 and after is None:
+                if not order:
+                    order.append(op_id)
+                    placed.append(op_id)
+                continue
+
+            # 2) ---------------- Insertion at BOF
+            if before == -1:
+                # insert before `after` (only if `after` is already placed)
+                if after in order:
+                    idx = order.index(after)
+                    order.insert(idx, op_id)
+                    placed.append(op_id)
+                continue
+
+            # 3) ---------------- Insertion at EOF
+            if after is None:
+                # insert after `before` (only if `before` is already placed)
+                if before in order:
+                    idx = order.index(before)
+                    order.insert(idx + 1, op_id)
+                    placed.append(op_id)
+                continue
+
+            # 4) ---------------- Normal insertion: between `before` and `after`
+            if before in order and after in order:
+                idx_before = order.index(before)
+                idx_after = order.index(after)
+
+                # Only insert if they appear in logical order
+                if idx_before < idx_after:
+                    order.insert(idx_after, op_id)
+                    placed.append(op_id)
+
+        # Remove successfully placed letters
+        for op_id in placed:
+            remaining.remove(op_id)
+
+    # Fallback: if something couldn’t be placed, append it at the end
+    # (useful for debugging)
+    for op_id in remaining:
+        if op_id not in order:
+            order.append(op_id)
+
+    # Build final string
+    return "".join(by_id[op_id]["char"] for op_id in order)
+
+
+
+
 FILENAME = "data/test_dataset_adding_random.json"
-
-
-def reconstruct_text(ops):
-    # ops = sorted(ops, key=lambda x: x["timestamp"])
-    text = []
-    for op in ops:
-        if op["id"] == 0:
-            text.append(op["char"])
-            continue
-        if op["type_of_operation"] == "i":
-            text.insert(op["position"] + 1, op["char"])
-        elif op["type_of_operation"] == "d":
-            if 0 <= op["position"] < len(text):
-                text.pop(op["position"])
-    return "".join(text)
-
-
 # Wczytanie operacji
 with open(FILENAME, "r", encoding="utf-8") as f:
     operations = json.load(f)
 
-reconstructed = reconstruct_text(operations)
+reconstructed = reconstruct_string(operations)
 
 print(f"Odtworzony tekst z pliku {FILENAME}:")  
 print(reconstructed)
