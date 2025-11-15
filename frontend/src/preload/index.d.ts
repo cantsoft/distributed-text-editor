@@ -1,6 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-const backend_api = require('../../native/index')
+const { Doc } = require('../../native/index.node')
 
 declare global {
   interface Window {
@@ -9,7 +9,7 @@ declare global {
       minimize: () => void;
       maximize: () => void;
       close: () => void;
-      createDocument: () => backend_api.Doc;
-    } 
+      createDocument: () => any;
+    }
   }
 }

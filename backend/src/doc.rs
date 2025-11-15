@@ -26,6 +26,7 @@ pub struct Doc {
 
 #[napi]
 impl Doc {
+
     #[napi(constructor)]
     pub fn new() -> Self {
         Self {
@@ -34,11 +35,18 @@ impl Doc {
             boundry: DEFAULT_BOUNDARY,
         }
     }
+
     pub fn tree(&self) -> &Tree {
         &self.tree
     }
+
     pub fn tree_mut(&mut self) -> &mut Tree {
         &mut self.tree
+    }
+
+    #[napi]
+    pub fn collect_string(&self) -> String {
+        self.tree().collect_string()
     }
 
     #[napi]
@@ -75,6 +83,11 @@ impl Doc {
         let after = self.id_from_absolute(1 + absolute_position);
         let id = self.generate_id(&before, &after, side);
         self.tree.insert(&id, data);
+    }
+
+    #[napi]
+    pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
+        self.insert_absolute(absolute_position, data.chars().next().unwrap(), &mut Side::new(123));
     }
 
     fn id_from_absolute(&self, absolute_position: u32) -> Arc<[NodeKey]> {
