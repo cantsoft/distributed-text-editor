@@ -21,27 +21,18 @@ export default function TextEdit(): React.JSX.Element {
       return;
     }
 
-    doc.insertAbsoluteWrapper(0, "a");
-    doc.insertAbsoluteWrapper(1, "b");
-    doc.insertAbsoluteWrapper(2, "c");
-    console.log(doc.collectString());
-    doc.removeAbsolute(3);
-    console.log(doc.collectString());
-
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);
-
     edit_ref.current.addEventListener("input", (event: Event) => {
+      const cursor_pos = document.getSelection()?.getRangeAt(0).startOffset;
       const input_type: string = event.inputType;
+      console.log(cursor_pos + " " + event.data);
       if (input_type == "insertText") {
-        console.log("Insert");
-      } else if (
-        input_type == "deleteContentBackward" ||
-        input_type == "deleteContentForward"
-      ) {
-        console.log("Delete");
+        doc.insertAbsoluteWrapper(cursor_pos - 1, event.data);
+      } else if (input_type == "deleteContentBackward") {
+        doc.removeAbsolute(cursor_pos as number);
       }
-      // console.log(document.getSelection()?.getRangeAt(0).startOffset);
+      console.log(doc.collectString());
     });
   }, [doc]);
 

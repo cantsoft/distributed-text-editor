@@ -26,7 +26,6 @@ pub struct Doc {
 
 #[napi]
 impl Doc {
-
     #[napi(constructor)]
     pub fn new() -> Self {
         Self {
@@ -56,7 +55,7 @@ impl Doc {
         loop {
             current.subtree_size -= 1;
             let next_key = current.children.iter().find_map(|(key, node)| {
-                if (interval as usize) <= node.subtree_size {
+                if (interval as usize) < node.subtree_size {
                     Some(*key)
                 } else {
                     interval -= node.subtree_size as u32;
@@ -64,7 +63,7 @@ impl Doc {
                 }
             });
             match next_key {
-                Some(key) if interval == 1 => {
+                Some(key) if interval == 0 => {
                     println!("removeing {:?}", current.children.get(&key));
                     current.save_remove_char(&key);
                     break;
@@ -87,7 +86,11 @@ impl Doc {
 
     #[napi]
     pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
-        self.insert_absolute(absolute_position, data.chars().next().unwrap(), &mut Side::new(123));
+        self.insert_absolute(
+            absolute_position,
+            data.chars().next().unwrap(),
+            &mut Side::new(123),
+        );
     }
 
     fn id_from_absolute(&self, absolute_position: u32) -> Arc<[NodeKey]> {
