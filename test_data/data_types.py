@@ -1,10 +1,8 @@
 
-"""TODO : pozycja względmna przed i po 
-   pozycja bezwzględna w dokumencie"""
-
 
 
 class letter:
+    # CRDT-like wrapper describing a single operation with relative neighbors and metadata
     def __init__(self, char, operacion_before : int, operacion_after : int , letter_id, user_id=None, timestamp=None, type_of_operation="i"):
         self.char = char
         self.relative_position = (operacion_before, operacion_after) 
