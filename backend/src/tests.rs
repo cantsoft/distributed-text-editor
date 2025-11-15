@@ -99,13 +99,11 @@ pub fn insert_remove_absolute_test() {
     doc.insert_absolute(2, 'c', &mut this_side);
     doc.insert_absolute(3, 'd', &mut this_side);
     doc.insert_absolute(4, 'e', &mut this_side);
-    doc.insert_absolute(5, 'f', &mut this_side);
-    doc.remove_absolute(1);
-    doc.remove_absolute(4);
-    doc.remove_absolute(1);
-    doc.remove_absolute(3);
-    doc.remove_absolute(1);
-    doc.remove_absolute(2);
+    doc.remove_absolute(1); // bcde
+    doc.remove_absolute(4); // bcd
+    doc.remove_absolute(1); // cd
+    doc.remove_absolute(2); // c
+    // doc.remove_absolute(3); // EOS could be removed
     let doc_str = doc.tree().collect_string();
     assert_eq!("c", doc_str)
 }

@@ -14,7 +14,7 @@ impl Default for Tree {
             root: Node {
                 kind: NodeKind::Root,
                 children: BTreeMap::new(),
-                subtree_size: 0,
+                subtree_size: 2,
             },
         };
         new.root.children.insert(

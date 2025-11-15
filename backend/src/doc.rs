@@ -43,7 +43,7 @@ impl Doc {
 
     #[napi]
     pub fn remove_absolute(&mut self, absolute_position: u32) {
-        let mut interval = absolute_position;
+        let mut interval = 1 + absolute_position;
         let mut current = &mut self.tree.root;
         loop {
             current.subtree_size -= 1;
@@ -57,6 +57,7 @@ impl Doc {
             });
             match next_key {
                 Some(key) if interval == 1 => {
+                    println!("removeing {:?}", current.children.get(&key));
                     current.save_remove_char(&key);
                     break;
                 }
