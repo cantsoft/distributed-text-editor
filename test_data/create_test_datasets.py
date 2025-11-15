@@ -5,7 +5,7 @@ from data_types import letter
 from wikipedia_data import  get_pages
 import random
 
-NUMBER_OF_CHARACTERS = 1000
+NUMBER_OF_CHARACTERS = 10
 NUMBER_OF_ARTICLES = 10
 
 def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: str = "adding" ) -> None:
@@ -76,7 +76,8 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
                 
         last_cashe_id = None
         for i in range(len(cashe_for_letters)):
-                  
+            # check if the previous letter in cashe has the same operacion_before
+            # if so, use last_cashe_id as operacion_before to link them together
             if i>=1 and cashe_for_letters[i-1][1] == cashe_for_letters[i][1] :
                 letters.append(letter(char=cashe_for_letters[i][0],operacion_before=last_cashe_id, 
                                     operacion_after=cashe_for_letters[i][2],
@@ -96,31 +97,104 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
         filename = filename +"_"+ type_of_problem +".json"
         wright_text = text[:num_char]
         
-    elif type_of_problem == "deleting":
-        site_id = 1
+    elif type_of_problem == "deleting_from_beginning":
+        # first add all characters
         user_id = 1
         timestamp = 1
-        # text = text[::-1]  
-        text = text
-        
+        letter_id = 0
+        pos_letter = 0
         for i in range(min(num_char, len(text))):
-            letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
-            timestamp += 1
-        filename = filename +"_"+ type_of_problem +".json"
-        
-    elif type_of_problem == "mixed":
-        for i in range(min(num_char, len(text))):
-            if i % 2 == 0:
-                letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            if i == 0:
+                letters.append(letter(char=text[i],operacion_before=-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
             else:
-                letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
-            timestamp += 1
-
-    elif type_of_problem == "timestamps":
+                letters.append(letter(char=text[i], operacion_before=pos_letter-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            
+            letter_id += 1
+            timestamp += 1  
+            pos_letter += 1
+        
+        # then delete all characters
+        user_id = 1
+        # timestamp = 1
+        # letter_id = 0
+        pos_letter = 0
         for i in range(min(num_char, len(text))):
-            letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
-            if i % 5 == 0:
-                timestamp += 1
+            if i == 0:
+                letters.append(letter(char=text[i], operacion_before=0, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+            else:
+                letters.append(letter(char=text[i], operacion_before=pos_letter, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+            
+            letter_id += 1
+            timestamp += 1  
+            pos_letter += 1 
+            
+                          
+        filename = filename +"_"+ type_of_problem +".json"
+        wright_text = ""
+        
+    elif type_of_problem == "deleting_from_end":
+        # first add all characters
+        user_id = 1
+        timestamp = 1
+        letter_id = 0
+        pos_letter = 0
+        for i in range(min(num_char, len(text))):
+            if i == 0:
+                letters.append(letter(char=text[i],operacion_before=-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            else:
+                letters.append(letter(char=text[i], operacion_before=pos_letter-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+            
+            letter_id += 1
+            timestamp += 1  
+            pos_letter += 1
+        
+        # then delete all characters
+        # user_id = 1
+        # timestamp = 1
+        # for i in range(min(num_char, len(text)) - 1, -1, -1):
+        #     if i == 0:
+        #         letters.append(letter(char=text[i], operacion_before=-1, operacion_after=None, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+        #     else:
+        #         letters.append(letter(char=text[i], operacion_before=i-1, operacion_after=None, letter_id=i, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+            
+        #     timestamp += 1   
+            
+        user_id = 1
+        # timestamp = 1
+        # letter_id = 0
+        for i in range(min(num_char, len(text)) - 1, -1, -1):
+            if i == 0:
+                letters.append(letter(char=text[i], operacion_before=0, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+            else:
+                letters.append(letter(char=text[i], operacion_before=pos_letter-1, operacion_after=None, letter_id=letter_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+            
+            letter_id += 1
+            timestamp += 1  
+            pos_letter -= 1     
+            
+            
+                         
+        filename = filename +"_"+ type_of_problem +".json"
+        wright_text = ""
+        
+        
+        
+        
+        
+    # TODO: implement other types of problems
+    # elif type_of_problem == "mixed":
+    #     for i in range(min(num_char, len(text))):
+    #         if i % 2 == 0:
+    #             letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+    #         else:
+    #             letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="d"))
+    #         timestamp += 1
+
+    # elif type_of_problem == "timestamps":
+    #     for i in range(min(num_char, len(text))):
+    #         letters.append(letter(char=text[i], pos=i, site_id=site_id, user_id=user_id, timestamp=timestamp, type_of_operation="i"))
+    #         if i % 5 == 0:
+    #             timestamp += 1
 
 
 
@@ -140,7 +214,8 @@ def create_test_dataset(filename_: str, num_char: int = 1000, type_of_problem: s
 enumerate_test_datasets = [
     ("data/test_dataset", "adding"),
     ("data/test_dataset", "adding_random"),
-    # ("data/test_dataset", "deleting"),
+    ("data/test_dataset", "deleting_from_beginning"),
+    ("data/test_dataset", "deleting_from_end"),
     # ("data/test_dataset", "mixed"),
     # ("data/test_dataset", "timestamps"),
 ]   
