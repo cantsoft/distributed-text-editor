@@ -8,7 +8,14 @@ const api = {
   minimize: () => ipcRenderer.send('window:minimize'),
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
-  createDocument: () => { return new Doc(); },
+  createDocument: () => {
+    const doc = new Doc()
+    return {
+      collectString: () => doc.collectString(),
+      removeAbsolute: (pos: number) => doc.removeAbsolute(pos),
+      insertAbsoluteWrapper: (pos: number, data: string) => doc.insertAbsoluteWrapper(pos, data)
+    }
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

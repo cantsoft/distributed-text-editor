@@ -5,24 +5,23 @@ import { backdrop_shader } from "@renderer/assets/backdrop_shader";
 export default function TextEdit(): React.JSX.Element {
   const canvas_ref  = useRef<HTMLCanvasElement | null>(null);
   const edit_ref    = useRef<HTMLDivElement | null>(null);
-  const [doc, setDoc] = useState<any | null>(null);
+  const [doc, setDoc] = useState< window.api.Doc | null>(null);
 
   useEffect(() => {
-
-    const d = window.api.createDocument();
-    console.log(d.collectString());
-
-    // console.log(Object.getOwnPropertyNames(Object.getPrototypeOf(d)));
-    // setDoc(window.api.createDocument());
-    
+    setDoc(window.api.createDocument());
   }, []);
 
   useEffect(() => {
 
     if (doc === null) { return; }
     if (canvas_ref.current === null || edit_ref.current === null) { return; }
- 
-    console.log(doc.removeAbsolute(1));
+    
+    doc.insertAbsoluteWrapper(0, "a");
+    doc.insertAbsoluteWrapper(1, "b");
+    doc.insertAbsoluteWrapper(2, "c");
+    console.log(doc.collectString());
+    doc.removeAbsolute(3);
+    console.log(doc.collectString());
 
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);

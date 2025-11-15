@@ -28,6 +28,10 @@ function createWindow(): void {
 
   main_window.on('ready-to-show', () => { main_window.show() });
 
+  if (is.dev) {
+    main_window.webContents.openDevTools();
+  }
+
   main_window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
