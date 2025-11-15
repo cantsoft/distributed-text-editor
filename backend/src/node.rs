@@ -42,37 +42,41 @@ impl Node {
         PreOrderIterator::new(self)
     }
 
+    pub fn save_remove_char(&mut self, key: &NodeKey) {
+        let to_remove = self.children.get_mut(key).unwrap();
+        if to_remove.children.is_empty() {
+            self.children.remove(key);
+        } else {
+            to_remove.kind = crate::node::NodeKind::Empty;
+        }
+    }
+
     // we don't handle empty chars in tree now
-    pub fn insert(&mut self, path: &[NodeKey], data: char) {
+    pub fn insert_id(&mut self, id: &[NodeKey], data: char) {
         self.subtree_size += 1;
-        match path {
+        match id {
             [head] => {
                 self.children.insert(*head, Box::new(Node::new(data)));
             }
             [head, tail @ ..] => {
                 let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
-                child.insert(tail, data);
+                child.insert_id(tail, data);
             }
             [] => panic!("Path cannot be empty"),
         }
     }
 
-    pub fn remove(&mut self, path: &[NodeKey]) {
+    pub fn remove_id(&mut self, path: &[NodeKey]) {
         match path {
             [head] => {
-                let to_remove = self.children.get_mut(head).unwrap();
-                if to_remove.children.is_empty() {
-                    self.children.remove(head);
-                } else {
-                    to_remove.kind = NodeKind::Empty;
-                }
+                self.save_remove_char(head);
             }
             [head, tail @ ..] => {
                 let child = self.children.get_mut(head).unwrap(); // this asummes that path is correct
                 child.subtree_size -= 1;
-                child.remove(tail);
+                child.remove_id(tail);
             }
-            [] => unreachable!(),
+            [] => panic!("Path cannot be empty"),
         }
     }
 }

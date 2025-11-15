@@ -16,7 +16,6 @@ use crate::types::{DEFAULT_BOUNDARY, IdType};
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
 
-// use this as main structure
 #[napi]
 #[derive(Debug)]
 pub struct Doc {
@@ -49,9 +48,6 @@ impl Doc {
         loop {
             current.subtree_size -= 1;
             let next_key = current.children.iter().find_map(|(key, node)| {
-                println!("interval: {}", interval);
-                println!("size: {}", node.subtree_size);
-                println!("ch: {:?} pos: {:?}\n", node.kind, key);
                 if (interval as usize) <= node.subtree_size {
                     Some(*key)
                 } else {
@@ -61,14 +57,7 @@ impl Doc {
             });
             match next_key {
                 Some(key) if interval == 1 => {
-                    let to_remove = current.children.get_mut(&key).unwrap();
-                    println!("removeing: {:?}", to_remove);
-                    if to_remove.children.is_empty() {
-                        //should be function
-                        current.children.remove(&key);
-                    } else {
-                        to_remove.kind = crate::node::NodeKind::Empty;
-                    }
+                    current.save_remove_char(&key);
                     break;
                 }
                 Some(key) => {
@@ -94,9 +83,6 @@ impl Doc {
         loop {
             let next_key = current.children.iter().find_map(|(key, node)| {
                 if (interval as usize) < node.subtree_size {
-                    println!("interval: {}", interval);
-                    println!("size: {}", node.subtree_size);
-                    println!("ch: {:?} pos: {:?}\n", node.kind, key);
                     Some(*key)
                 } else {
                     interval -= node.subtree_size as u32;

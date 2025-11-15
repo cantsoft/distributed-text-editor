@@ -64,19 +64,19 @@ impl Tree {
 
     // assumse path is valid and not exists yet
     pub fn insert(&mut self, path: &[NodeKey], data: char) {
-        self.root.insert(path, data);
+        self.root.insert_id(path, data);
     }
 
     // assumse path is valid and exists yet
     pub fn remove(&mut self, path: &[NodeKey]) {
-        self.root.remove(path);
+        self.root.remove_id(path);
     }
 
     pub fn collect_string(&self) -> String {
         self.root
             .children
-            .iter()
-            .flat_map(|(_, node)| node.iter())
+            .values()
+            .flat_map(|node| node.iter())
             .filter_map(|node| match node.kind {
                 NodeKind::Char(ch) => Some(ch),
                 _ => None,
