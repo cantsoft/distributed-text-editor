@@ -1,6 +1,3 @@
-
-
-
 class letter:
     # CRDT-like wrapper describing a single operation with relative neighbors and metadata
     def __init__(self, char, operacion_before : int, operacion_after : int , letter_id, user_id=None, timestamp=None, type_of_operation="i"):
@@ -14,13 +11,14 @@ class letter:
             if pos_after == None it means EOF (end of file)
         """
         
-        self.id = letter_id # id of this operacion
-        self.user_id = user_id # which user made the change
-        self.timestamp = timestamp # time of creation
-        self.type_of_operation = type_of_operation  # "i" for 'insert' or "d" for 'delete'
+        self.id = letter_id 
+        self.user_id = user_id 
+        self.timestamp = timestamp
+        self.type_of_operation = type_of_operation  
     
     def __repr__(self):
         return f"letter(char={self.char}, position={self.position}, site_id={self.site_id})"
+    
     def __str__(self):
         return self.char
     

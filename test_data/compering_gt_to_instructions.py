@@ -1,11 +1,9 @@
 import json
 import difflib
 
-
-
 def reconstruct_text_relative(operations):
 
-    # --- 1. LOAD INSERTS ---
+    
     inserts = {op["id"]: op for op in operations if op["type_of_operation"] == "i"}
 
     # --- 2. LOAD DELETES AND REMOVE INSERTS ---
@@ -34,29 +32,29 @@ def reconstruct_text_relative(operations):
             op = by_id[op_id]
             before, after = op["relative_position"]
 
-            # Case 1: BOF → EOF
+            # Case 1: BOF -> EOF
             if before == -1 and after is None:
                 if not order:
                     order.append(op_id)
                     placed.append(op_id)
-                continue
+                
 
             # Insert at BOF
-            if before == -1:
+            elif before == -1:
                 if after in order:
                     order.insert(order.index(after), op_id)
                     placed.append(op_id)
-                continue
+                
 
             # Insert at EOF
-            if after is None:
+            elif after is None:
                 if before in order:
                     order.insert(order.index(before) + 1, op_id)
                     placed.append(op_id)
-                continue
+                
 
             # Insert between before and after
-            if before in order and after in order:
+            elif before in order and after in order:
                 ib = order.index(before)
                 ia = order.index(after)
                 if ib < ia:
@@ -81,15 +79,13 @@ if __name__ == "__main__":
         ("data/test_dataset", "adding_random"),
         ("data/test_dataset", "deleting_from_beginning"),
         ("data/test_dataset", "deleting_from_end"),
-        # ("data/test_dataset", "mixed"),
-        # ("data/test_dataset", "timestamps"),
     ]   
 
     print("Testing data sets...")
     for i, (path, name) in enumerate(enumerate_test_datasets):
         print("\n")
         FILENAME = f"{path}_{name}.json"
-        # Load operations
+        
         with open(FILENAME, "r", encoding="utf-8") as f:
             operations = json.load(f)
 
@@ -98,11 +94,11 @@ if __name__ == "__main__":
         print(f"Reconstructed text from {FILENAME}:")  
         print(reconstructed)
 
-        # Load ground-truth text
+       
         with open(f"{FILENAME}_ground_truth.txt", "r", encoding="utf-8") as f:
             ground_truth = f.read()
 
-        # Compare reconstructed text with ground truth and dump differences
+        
         diff_lines = difflib.unified_diff(
             ground_truth.splitlines(),
             reconstructed.splitlines(),
@@ -118,17 +114,17 @@ if __name__ == "__main__":
             with open(f"debug_out/diff_{name}.txt", "w", encoding="utf-8") as out:
                 for line in diff_lines:
                     out.write(line + "\n")
-            print(f"✅ Done. Differences saved to diff_{name}.txt in the debug_out folder.")
-            print(f"Dataset {i}: {name} is incorrectly designed.❌")
+            print(f"Done. Differences saved to diff_{name}.txt in the debug_out folder.")
+            print(f"Dataset {i}: {name} is incorrectly designed.")
             flag = False
         else: 
-            print("✅ Reconstructed text matches the ground truth.")
-            print(f"Dataset {i}: {name} is correctly designed.✅")
+            print("Reconstructed text matches the ground truth.")
+            print(f"Dataset {i}: {name} is correctly designed.")
     
     print("\nAll test datasets have been evaluated.")
 
     if flag:    
-        print("All datasets are correctly designed.✅")
+        print("All datasets are correctly designed.")
     else:
-        print("Some datasets are incorrectly designed.❌")    
+        print("Some datasets are incorrectly designed.")    
     
