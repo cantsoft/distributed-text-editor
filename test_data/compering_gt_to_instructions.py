@@ -6,7 +6,7 @@ def reconstruct_text_relative(operations):
     
     inserts = {op["id"]: op for op in operations if op["type_of_operation"] == "i"}
 
-    # --- 2. LOAD DELETES AND REMOVE INSERTS ---
+    # --- LOAD DELETES AND REMOVE INSERTS ---
     for op in operations:
         if op["type_of_operation"] == "d":
             before = op["relative_position"][0]
@@ -18,7 +18,7 @@ def reconstruct_text_relative(operations):
     if not inserts:
         return ""
 
-    # --- 3. REBUILD TEXT FROM REMAINING INSERTS (standard ordering) ---
+    # --- REBUILD TEXT FROM REMAINING INSERTS (standard ordering) ---
     by_id = inserts
     order = []
     remaining = set(by_id.keys())
@@ -68,7 +68,7 @@ def reconstruct_text_relative(operations):
     for op_id in remaining:
         order.append(op_id)
 
-    # --- 4. BUILD FINAL STRING ---
+    # --- BUILD FINAL STRING ---
     return "".join(by_id[i]["char"] for i in order)
 
 if __name__ == "__main__":
@@ -84,18 +84,18 @@ if __name__ == "__main__":
     print("Testing data sets...")
     for i, (path, name) in enumerate(enumerate_test_datasets):
         print("\n")
-        FILENAME = f"{path}_{name}.json"
+        filename = f"{path}_{name}.json"
         
-        with open(FILENAME, "r", encoding="utf-8") as f:
+        with open(filename, "r", encoding="utf-8") as f:
             operations = json.load(f)
 
         reconstructed = reconstruct_text_relative(operations)
 
-        print(f"Reconstructed text from {FILENAME}:")  
+        print(f"Reconstructed text from {filename}:")  
         print(reconstructed)
 
        
-        with open(f"{FILENAME}_ground_truth.txt", "r", encoding="utf-8") as f:
+        with open(f"{filename}_ground_truth.txt", "r", encoding="utf-8") as f:
             ground_truth = f.read()
 
         
@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
         # Consume one entry to check for differences; generator now starts from the second diff line
         if next(diff_lines, None) is not None:
-            print("❌ Differences detected between reconstructed text and ground truth.")
+            print("Differences detected between reconstructed text and ground truth.")
             with open(f"debug_out/diff_{name}.txt", "w", encoding="utf-8") as out:
                 for line in diff_lines:
                     out.write(line + "\n")
