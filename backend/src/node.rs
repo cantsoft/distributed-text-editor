@@ -19,14 +19,14 @@ pub enum NodeKind {
 }
 
 #[derive(Debug)]
-pub struct Node {
-    pub kind: NodeKind,
-    pub children: BTreeMap<NodeKey, Box<Node>>,
-    pub subtree_size: usize,
+pub(crate) struct Node {
+    pub(crate) kind: NodeKind,
+    pub(crate) children: BTreeMap<NodeKey, Box<Node>>,
+    pub(crate) subtree_size: usize,
 }
 
 impl Node {
-    pub fn new(data: char) -> Self {
+    pub(crate) fn new(data: char) -> Self {
         Self {
             kind: NodeKind::Char(data),
             children: BTreeMap::new(),
@@ -34,25 +34,26 @@ impl Node {
         }
     }
 
-    pub fn max_digit(depth: Depth) -> IdType {
+    pub(crate) fn max_digit(depth: Depth) -> IdType {
         1 << (4 + depth)
     }
 
-    pub fn iter<'a>(&'a self) -> PreOrderIterator<'a> {
+    pub(crate) fn iter<'a>(&'a self) -> PreOrderIterator<'a> {
         PreOrderIterator::new(self)
     }
 
-    pub fn save_remove_char(&mut self, key: &NodeKey) {
+    pub(crate) fn save_remove_char(&mut self, key: &NodeKey) {
         let to_remove = self.children.get_mut(key).unwrap();
         if to_remove.children.is_empty() {
             self.children.remove(key);
         } else {
             to_remove.kind = crate::node::NodeKind::Empty;
+            to_remove.subtree_size -= 1;
         }
     }
 
     // we don't handle empty chars in tree now
-    pub fn insert_id(&mut self, id: &[NodeKey], data: char) {
+    pub(crate) fn insert_id(&mut self, id: &[NodeKey], data: char) {
         self.subtree_size += 1;
         match id {
             [head] => {
@@ -66,7 +67,7 @@ impl Node {
         }
     }
 
-    pub fn remove_id(&mut self, path: &[NodeKey]) {
+    pub(crate) fn remove_id(&mut self, path: &[NodeKey]) {
         match path {
             [head] => {
                 self.save_remove_char(head);
@@ -81,7 +82,7 @@ impl Node {
     }
 }
 
-pub struct PreOrderIterator<'a> {
+pub(crate) struct PreOrderIterator<'a> {
     stack: Vec<&'a Node>,
 }
 

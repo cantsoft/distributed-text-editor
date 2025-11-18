@@ -30,7 +30,7 @@ export default function TextEdit(): React.JSX.Element {
       if (input_type == "insertText") {
         doc.insertAbsoluteWrapper(cursor_pos - 1, event.data);
       } else if (input_type == "deleteContentBackward") {
-        doc.removeAbsolute(cursor_pos as number);
+        doc.removeAbsoluteWrapper(cursor_pos as number);
       }
       console.log(doc.collectString());
     });

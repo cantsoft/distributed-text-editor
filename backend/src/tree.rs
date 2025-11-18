@@ -4,8 +4,52 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 #[derive(Debug)]
-pub struct Tree {
-    pub root: Node,
+pub(crate) struct Tree {
+    pub(crate) root: Node,
+}
+
+#[macro_export]
+macro_rules! traverse_absolute {
+    (
+        $self:expr,
+        $pos:expr,
+        on_enter = $on_enter:expr,
+        on_hit = $on_hit:expr
+    ) => {{
+        let mut interval = $pos;
+        let mut current = &mut $self.root;
+
+        loop {
+            let next_key = {
+                let mut chosen = None;
+                for (key, node) in current.children.iter() {
+                    if interval < node.subtree_size {
+                        chosen = Some(*key);
+                        break;
+                    } else {
+                        interval -= node.subtree_size;
+                    }
+                }
+                chosen
+            };
+
+            match next_key {
+                Some(key) if interval == 0 => {
+                    $on_hit(current, key);
+                    break;
+                }
+                Some(key) => {
+                    $on_enter(&mut current.subtree_size, key);
+                    if current.kind != $crate::node::NodeKind::Empty {
+                        interval -= 1;
+                    }
+
+                    current = current.children.get_mut(&key).unwrap();
+                }
+                None => panic!("Position out of bounds"),
+            }
+        }
+    }};
 }
 
 impl Default for Tree {
@@ -46,7 +90,7 @@ impl Default for Tree {
 }
 
 impl Tree {
-    pub fn bos_path(&self) -> Arc<[NodeKey]> {
+    pub(crate) fn bos_path(&self) -> Arc<[NodeKey]> {
         Arc::from([NodeKey {
             digit: MIN_POSITION_DIGIT,
             peer_id: 0,
@@ -54,7 +98,7 @@ impl Tree {
         }])
     }
 
-    pub fn eos_path(&self) -> Arc<[NodeKey]> {
+    pub(crate) fn eos_path(&self) -> Arc<[NodeKey]> {
         Arc::from([NodeKey {
             digit: MAX_POSITION_DIGIT,
             peer_id: 0,
@@ -63,16 +107,16 @@ impl Tree {
     }
 
     // assumse path is valid and not exists yet
-    pub fn insert(&mut self, path: &[NodeKey], data: char) {
+    pub(crate) fn insert_id(&mut self, path: &[NodeKey], data: char) {
         self.root.insert_id(path, data);
     }
 
     // assumse path is valid and exists yet
-    pub fn remove(&mut self, path: &[NodeKey]) {
+    pub(crate) fn remove_id(&mut self, path: &[NodeKey]) {
         self.root.remove_id(path);
     }
 
-    pub fn collect_string(&self) -> String {
+    pub(crate) fn collect_string(&self) -> String {
         self.root
             .children
             .values()
@@ -82,5 +126,21 @@ impl Tree {
                 _ => None,
             })
             .collect()
+    }
+
+    pub(crate) fn id_from_absolute(&mut self, pos: usize) -> Arc<[NodeKey]> {
+        let mut path = Vec::new();
+        traverse_absolute!(
+            self,
+            pos,
+            on_enter = |_, key: NodeKey| {
+                path.push(key);
+            },
+            on_hit = |_, key: NodeKey| {
+                path.push(key);
+            }
+        );
+
+        path.into()
     }
 }

@@ -33,7 +33,7 @@ pub fn insert_delete_collect_test() {
     let test_str = "abcdefghijklmnoprstuwxyz1234567890";
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
-    let mut ids = vec![];
+    let mut ids = Vec::new();
     let mut new_id = doc.tree().bos_path();
     let eos = doc.tree().eos_path();
     for ch in test_str.chars() {
@@ -41,14 +41,14 @@ pub fn insert_delete_collect_test() {
         println!("after: {:?}", new_id);
         new_id = doc.generate_id(&new_id, &eos, &mut this_side);
         println!("new_id: {:?}\n", new_id);
-        doc.tree_mut().insert(&new_id, ch);
+        doc.tree_mut().insert_id(&new_id, ch);
         ids.push(new_id.clone());
     }
     let doc_str = doc.tree().collect_string();
     assert_eq!(test_str, doc_str);
     for (id, ch) in zip(ids, test_str.chars()) {
         println!("removeing: {}", ch);
-        doc.tree_mut().remove(&id);
+        doc.tree_mut().remove_id(&id);
     }
     let doc_str = doc.tree().collect_string();
     assert_eq!("", doc_str);
@@ -70,7 +70,7 @@ pub fn remove_absolute_test() {
     let test_str = "aabbccddeeffgg";
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
-    let mut ids = vec![];
+    let mut ids = Vec::new();
     let mut new_id = doc.tree().bos_path();
     let eos = doc.tree().eos_path();
     for ch in test_str.chars() {
@@ -78,14 +78,14 @@ pub fn remove_absolute_test() {
         println!("after: {:?}", new_id);
         new_id = doc.generate_id(&new_id, &eos, &mut this_side);
         println!("new_id: {:?}\n", new_id);
-        doc.tree_mut().insert(&new_id, ch);
+        doc.tree_mut().insert_id(&new_id, ch);
         ids.push(new_id.clone());
     }
     println!("tree size: {}", doc.tree().root.subtree_size);
-    (1..=test_str.len())
+    (0..=test_str.len())
         .rev()
         .filter(|i| i % 2 == 0)
-        .for_each(|i| doc.remove_absolute(i as u32));
+        .for_each(|i| doc.remove_absolute(i));
     let doc_str = doc.tree().collect_string();
     assert_eq!("abcdefg", doc_str);
 }
@@ -99,11 +99,12 @@ pub fn insert_remove_absolute_test() {
     doc.insert_absolute(2, 'c', &mut this_side);
     doc.insert_absolute(3, 'd', &mut this_side);
     doc.insert_absolute(4, 'e', &mut this_side);
-    doc.remove_absolute(1); // bcde
-    doc.remove_absolute(4); // bcd
-    doc.remove_absolute(1); // cd
-    doc.remove_absolute(2); // c
-    // doc.remove_absolute(3); // EOS could be removed
+    doc.remove_absolute(0); // bcde
+    println!("{:?}", doc.tree().collect_string());
+    doc.remove_absolute(3); // bcd
+    doc.remove_absolute(0); // cd
+    doc.remove_absolute(1); // c
+    // doc.remove_absolute(0); // EOS could be removed
     let doc_str = doc.tree().collect_string();
     assert_eq!("c", doc_str)
 }

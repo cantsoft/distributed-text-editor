@@ -8,8 +8,9 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::node::{NodeKey, NodeKind};
+use crate::node::{Node, NodeKey};
 use crate::side::Side;
+use crate::traverse_absolute;
 use crate::tree::Tree;
 use crate::types::{DEFAULT_BOUNDARY, IdType};
 
@@ -34,98 +35,67 @@ impl Doc {
             boundry: DEFAULT_BOUNDARY,
         }
     }
-
-    pub fn tree(&self) -> &Tree {
+    pub(crate) fn tree(&self) -> &Tree {
         &self.tree
     }
 
-    pub fn tree_mut(&mut self) -> &mut Tree {
+    pub(crate) fn tree_mut(&mut self) -> &mut Tree {
         &mut self.tree
-    }
-
-    #[napi]
-    pub fn collect_string(&self) -> String {
-        self.tree().collect_string()
-    }
-
-    #[napi]
-    pub fn remove_absolute(&mut self, absolute_position: u32) {
-        let mut interval = 1 + absolute_position;
-        let mut current = &mut self.tree.root;
-        loop {
-            current.subtree_size -= 1;
-            let next_key = current.children.iter().find_map(|(key, node)| {
-                if (interval as usize) < node.subtree_size {
-                    Some(*key)
-                } else {
-                    interval -= node.subtree_size as u32;
-                    None
-                }
-            });
-            match next_key {
-                Some(key) if interval == 0 => {
-                    println!("removeing {:?}", current.children.get(&key));
-                    current.save_remove_char(&key);
-                    break;
-                }
-                Some(key) => {
-                    interval -= 1;
-                    current = current.children.get_mut(&key).unwrap();
-                }
-                None => panic!("Position out of bounds"),
-            }
-        }
-    }
-
-    pub fn insert_absolute(&mut self, absolute_position: u32, data: char, side: &mut Side) {
-        let before = self.id_from_absolute(absolute_position);
-        let after = self.id_from_absolute(1 + absolute_position);
-        let id = self.generate_id(&before, &after, side);
-        self.tree.insert(&id, data);
     }
 
     #[napi]
     pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
         self.insert_absolute(
-            absolute_position,
+            absolute_position as usize,
             data.chars().next().unwrap(),
             &mut Side::new(123),
         );
     }
 
-    fn id_from_absolute(&self, absolute_position: u32) -> Arc<[NodeKey]> {
-        let mut id = vec![];
-        let mut interval = absolute_position;
-        let mut current = &self.tree.root;
-        loop {
-            let next_key = current.children.iter().find_map(|(key, node)| {
-                if (interval as usize) < node.subtree_size {
-                    Some(*key)
-                } else {
-                    interval -= node.subtree_size as u32;
-                    None
-                }
-            });
-            match next_key {
-                Some(key) if interval == 0 => {
-                    id.push(key);
-                    break;
-                }
-                Some(key) => {
-                    id.push(key);
-                    if current.kind != NodeKind::Empty {
-                        interval -= 1;
-                    }
-                    current = current.children.get(&key).unwrap();
-                }
-                None => panic!("Position out of bounds"),
+    #[napi]
+    pub fn remove_absolute_wrapper(&mut self, absolute_position: u32) {
+        self.remove_absolute(absolute_position as usize);
+    }
+
+    #[napi]
+    pub fn collect_string(&self) -> String {
+        self.tree.collect_string()
+    }
+
+    pub(crate) fn insert_absolute(
+        &mut self,
+        absolute_position: usize,
+        data: char,
+        side: &mut Side,
+    ) {
+        let before = self.tree.id_from_absolute(absolute_position);
+        let after = self.tree.id_from_absolute(1 + absolute_position);
+        let id = self.generate_id(&before, &after, side);
+        self.tree.insert_id(&id, data);
+    }
+
+    pub(crate) fn remove_absolute(&mut self, pos: usize) {
+        traverse_absolute!(
+            self.tree,
+            pos + 1,
+            on_enter = |subtree_size: &mut usize, _| {
+                *subtree_size -= 1;
+            },
+            on_hit = |parent: &mut Node, key: NodeKey| {
+                parent.subtree_size -= 1;
+                println!("removing {:?}", parent.children.get(&key));
+                parent.save_remove_char(&key);
             }
-        }
-        id.into()
+        );
     }
 
     // use this function to generate new id between p and q
-    pub fn generate_id(&mut self, p: &[NodeKey], q: &[NodeKey], side: &mut Side) -> Arc<[NodeKey]> {
+    pub(crate) fn generate_id(
+        &mut self,
+        p: &[NodeKey],
+        q: &[NodeKey],
+        side: &mut Side,
+    ) -> Arc<[NodeKey]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
         let (interval, p_pref, q_pref, depth) = Self::find_interval(p, q);
@@ -171,7 +141,7 @@ impl Doc {
         let mut once = true;
         let time = side.time_inc();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
-        let mut id = vec![];
+        let mut id = Vec::new();
         for digit in r {
             let (p_opt, q_opt) = (p_it.next(), q_it.next());
             let pos = match (p_opt, q_opt) {
