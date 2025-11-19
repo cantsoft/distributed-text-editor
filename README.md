@@ -1,12 +1,11 @@
 # Distributed Concurrent Text Editor
-This is a repo for the group student project about creating a distributed 
-concurrent text editor.
+This is a repo for the group student project about creating a distributed concurrent text editor.
 
 ## Project Roles
 * [Sławek Brzózka](https://github.com/Ezic04) - concurrent text synchronization & writing LaTeX reports
-* [Jan Zakroczymski](https://github.com/Balu46) - GUI & project management
-* [Julian Konowalski](https://github.com/JulianKonowalski) - networking & repository management
-* [Jan Zadrąg](https://github.com/j4xz1) - GUI & tests
+* [Jan Zakroczymski](https://github.com/Balu46) - project management
+* [Julian Konowalski](https://github.com/JulianKonowalski) - GUI, networking & repository management
+* [Jan Zadrąg](https://github.com/j4xz1) - Rust backend tests
 
 #  Building The Project
 
@@ -19,11 +18,10 @@ To build the project make sure you have installed:
 To build the project, start off the command line in the project's root directory. Then you can use
 these commands to build and run the project:
 ```
-# setup js environment
-cd frontend
-npm install
-
-# build the Node module and run the app
-npm run build:backend
-npm run dev
+python scripts/run.py -i
 ```
+to run the project with npm package preinstallation or
+```
+python scripts/run.py
+```
+to skip the npm package checks
