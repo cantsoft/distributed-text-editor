@@ -5,14 +5,14 @@ use num_traits::One;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::cmp::min;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use crate::node::{Node, NodeKey};
+use crate::node::{NodeKey, NodeKind};
 use crate::side::Side;
-use crate::traverse_absolute;
-use crate::tree::Tree;
-use crate::types::{DEFAULT_BOUNDARY, IdType};
+use crate::types::{
+    DEFAULT_BOUNDARY, IdType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, RESERVED_PEER,
+};
 
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
@@ -20,7 +20,7 @@ const SEED: [u8; 32] = [0; 32];
 #[napi]
 #[derive(Debug)]
 pub struct Doc {
-    tree: Tree,
+    id_list: BTreeMap<Arc<[NodeKey]>, NodeKind>,
     strategy: HashMap<usize, bool>,
     boundry: IdType,
 }
@@ -29,37 +29,66 @@ pub struct Doc {
 impl Doc {
     #[napi(constructor)]
     pub fn new() -> Self {
+        let mut id_list = BTreeMap::default();
+        id_list.insert(
+            Arc::from(
+                vec![NodeKey {
+                    digit: MIN_POSITION_DIGIT,
+                    peer_id: RESERVED_PEER,
+                    time: 0,
+                }]
+                .into_boxed_slice(),
+            ),
+            NodeKind::Bos,
+        );
+        id_list.insert(
+            Arc::from(
+                vec![NodeKey {
+                    digit: MAX_POSITION_DIGIT,
+                    peer_id: RESERVED_PEER,
+                    time: 0,
+                }]
+                .into_boxed_slice(),
+            ),
+            NodeKind::Eos,
+        );
         Self {
-            tree: Tree::default(),
+            id_list: id_list,
             strategy: HashMap::new(),
             boundry: DEFAULT_BOUNDARY,
         }
     }
-    pub(crate) fn tree(&self) -> &Tree {
-        &self.tree
-    }
-
-    pub(crate) fn tree_mut(&mut self) -> &mut Tree {
-        &mut self.tree
-    }
-
-    #[napi]
-    pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
-        self.insert_absolute(
-            absolute_position as usize,
-            data.chars().next().unwrap(),
-            &mut Side::new(123),
-        );
-    }
 
     #[napi]
     pub fn remove_absolute_wrapper(&mut self, absolute_position: u32) {
-        self.remove_absolute(absolute_position as usize);
+        self.remove_absolute(absolute_position as usize)
+            .expect("remove failed");
+    }
+    #[napi]
+    pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
+        let mut side = Side::new(123);
+        self.insert_absolute(
+            absolute_position as usize,
+            data.chars().next().expect("empty char"),
+            &mut side,
+        )
+        .expect("insert failed");
     }
 
-    #[napi]
-    pub fn collect_string(&self) -> String {
-        self.tree.collect_string()
+    pub(crate) fn bos_id(&self) -> Arc<[NodeKey]> {
+        self.id_list
+            .first_key_value()
+            .expect("Error: BOS node missing")
+            .0
+            .clone()
+    }
+
+    pub(crate) fn eos_id(&self) -> Arc<[NodeKey]> {
+        self.id_list
+            .last_key_value()
+            .expect("Error: EOS node missing")
+            .0
+            .clone()
     }
 
     pub(crate) fn insert_absolute(
@@ -67,26 +96,51 @@ impl Doc {
         absolute_position: usize,
         data: char,
         side: &mut Side,
-    ) {
-        let before = self.tree.id_from_absolute(absolute_position);
-        let after = self.tree.id_from_absolute(1 + absolute_position);
-        let id = self.generate_id(&before, &after, side);
-        self.tree.insert_id(&id, data);
+    ) -> Result<(), &'static str> {
+        let mut keys = self.id_list.keys();
+        let before_key = keys
+            .nth(absolute_position)
+            .cloned()
+            .ok_or("wrong position")?;
+        let after_key = keys.next().cloned().ok_or("wrong position")?;
+        let id = self.generate_id(&before_key, &after_key, side);
+        self.id_list.insert(id, NodeKind::Char(data));
+        Ok(())
     }
 
-    pub(crate) fn remove_absolute(&mut self, pos: usize) {
-        traverse_absolute!(
-            self.tree,
-            pos + 1,
-            on_enter = |subtree_size: &mut usize, _| {
-                *subtree_size -= 1;
-            },
-            on_hit = |parent: &mut Node, key: NodeKey| {
-                parent.subtree_size -= 1;
-                println!("removing {:?}", parent.children.get(&key));
-                parent.save_remove_char(&key);
-            }
-        );
+    pub(crate) fn remove_absolute(&mut self, absolute_position: usize) -> Result<(), &'static str> {
+        let id = self
+            .id_list
+            .keys()
+            .nth(1 + absolute_position)
+            .cloned()
+            .ok_or("wrong position")?;
+        self.id_list.remove(&id);
+        Ok(())
+    }
+
+    pub(crate) fn insert_id(&mut self, id: Arc<[NodeKey]>, data: char) -> Result<(), &'static str> {
+        self.id_list.insert(id, NodeKind::Char(data));
+        Ok(())
+    }
+
+    pub(crate) fn remove_id(&mut self, id: &[NodeKey]) -> Result<(), &'static str> {
+        self.id_list.remove(id);
+        Ok(())
+    }
+
+    #[napi]
+    pub fn collect_string(&self) -> String {
+        self.id_list
+            .values()
+            .filter_map(|k| {
+                if let NodeKind::Char(c) = k {
+                    Some(*c)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     // use this function to generate new id between p and q
