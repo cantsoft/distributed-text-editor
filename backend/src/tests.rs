@@ -1,11 +1,10 @@
 use crate::Doc;
-use crate::node::NodeKey;
 use crate::side::Side;
-use crate::types::IdType;
+use crate::types::{DigitType, NodeKey};
 use std::iter::zip;
 use std::sync::Arc;
 
-fn from_digits(digits: &[IdType]) -> Arc<[NodeKey]> {
+fn from_digits(digits: &[DigitType]) -> Arc<[NodeKey]> {
     digits
         .iter()
         .map(|digit| NodeKey {
@@ -102,7 +101,6 @@ pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
     doc.insert_absolute(4, 'e', &mut this_side)?;
     doc.remove_absolute(0)?; // bcde
     doc.remove_absolute(3)?; // bcd
-    // println!("{}", doc.collect_string());
     doc.remove_absolute(0)?; // cd
     doc.remove_absolute(1)?; // c
     // doc.remove_absolute(0); // EOS could be removed

@@ -1,3 +1,7 @@
+use crate::side::Side;
+use crate::types::{
+    DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, NodeKey, RESERVED_PEER,
+};
 use core::panic;
 use napi_derive::napi;
 use num_bigint::{BigInt, Sign};
@@ -8,21 +12,15 @@ use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Arc;
 
-use crate::node::{NodeKey, NodeKind};
-use crate::side::Side;
-use crate::types::{
-    DEFAULT_BOUNDARY, IdType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, RESERVED_PEER,
-};
-
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
 
 #[napi]
 #[derive(Debug)]
 pub struct Doc {
-    id_list: BTreeMap<Arc<[NodeKey]>, NodeKind>,
+    id_list: BTreeMap<Arc<[NodeKey]>, Option<char>>,
     strategy: HashMap<usize, bool>,
-    boundry: IdType,
+    boundry: DigitType,
 }
 
 #[napi]
@@ -31,26 +29,12 @@ impl Doc {
     pub fn new() -> Self {
         let mut id_list = BTreeMap::default();
         id_list.insert(
-            Arc::from(
-                vec![NodeKey {
-                    digit: MIN_POSITION_DIGIT,
-                    peer_id: RESERVED_PEER,
-                    time: 0,
-                }]
-                .into_boxed_slice(),
-            ),
-            NodeKind::Bos,
+            Arc::from(vec![NodeKey::new(MIN_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
+            None,
         );
         id_list.insert(
-            Arc::from(
-                vec![NodeKey {
-                    digit: MAX_POSITION_DIGIT,
-                    peer_id: RESERVED_PEER,
-                    time: 0,
-                }]
-                .into_boxed_slice(),
-            ),
-            NodeKind::Eos,
+            Arc::from(vec![NodeKey::new(MAX_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
+            None,
         );
         Self {
             id_list: id_list,
@@ -104,7 +88,7 @@ impl Doc {
             .ok_or("wrong position")?;
         let after_key = keys.next().cloned().ok_or("wrong position")?;
         let id = self.generate_id(&before_key, &after_key, side);
-        self.id_list.insert(id, NodeKind::Char(data));
+        self.id_list.insert(id, Some(data));
         Ok(())
     }
 
@@ -120,7 +104,7 @@ impl Doc {
     }
 
     pub(crate) fn insert_id(&mut self, id: Arc<[NodeKey]>, data: char) -> Result<(), &'static str> {
-        self.id_list.insert(id, NodeKind::Char(data));
+        self.id_list.insert(id, Some(data));
         Ok(())
     }
 
@@ -131,16 +115,7 @@ impl Doc {
 
     #[napi]
     pub fn collect_string(&self) -> String {
-        self.id_list
-            .values()
-            .filter_map(|k| {
-                if let NodeKind::Char(c) = k {
-                    Some(*c)
-                } else {
-                    None
-                }
-            })
-            .collect()
+        self.id_list.values().filter_map(|ch| *ch).collect()
     }
 
     // use this function to generate new id between p and q
@@ -174,7 +149,7 @@ impl Doc {
             .into_iter()
             .chain(std::iter::repeat_n(0, depth.saturating_sub(len)))
             .rev()
-            .collect::<Vec<IdType>>();
+            .collect::<Vec<DigitType>>();
         Self::construct_id(&digits, p, q, side)
     }
 
@@ -191,7 +166,12 @@ impl Doc {
         (interval, p_pref, q_pref, depth)
     }
 
-    fn construct_id(r: &[IdType], p: &[NodeKey], q: &[NodeKey], side: &mut Side) -> Arc<[NodeKey]> {
+    fn construct_id(
+        r: &[DigitType],
+        p: &[NodeKey],
+        q: &[NodeKey],
+        side: &mut Side,
+    ) -> Arc<[NodeKey]> {
         let mut once = true;
         let time = side.time_inc();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
