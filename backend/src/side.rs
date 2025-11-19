@@ -1,18 +1,17 @@
-use crate::types::{PeerId, Timestamp};
+use crate::types::{PeerIdType, TimestampType};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Side {
-    pub peer_id: PeerId, // unique id for each peer
-    pub time: Timestamp, // logical clock
+pub(crate) struct Side {
+    pub(crate) peer_id: PeerIdType,
+    time: TimestampType,
 }
 
 impl Side {
-    pub fn new(peer_id: PeerId) -> Self {
+    pub(crate) fn new(peer_id: PeerIdType) -> Self {
         Self { peer_id, time: 0 }
     }
 
-    // use this to get time and increment logical clock
-    pub fn time_inc(&mut self) -> Timestamp {
+    pub(crate) fn time_inc(&mut self) -> TimestampType {
         let ret = self.time;
         self.time += 1;
         ret

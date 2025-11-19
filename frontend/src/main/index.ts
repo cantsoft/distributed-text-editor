@@ -4,6 +4,7 @@ import icon from '../../resources/icon.png?asset';
 import { join } from 'path';
 
 function createWindow(): void {
+
   const main_window = new BrowserWindow({
     width: 800,
     minWidth: 400,
@@ -26,6 +27,10 @@ function createWindow(): void {
   });
 
   main_window.on('ready-to-show', () => { main_window.show() });
+
+  if (is.dev) {
+    main_window.webContents.openDevTools();
+  }
 
   main_window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -61,5 +66,3 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') { app.quit(); }
 });
-
-
