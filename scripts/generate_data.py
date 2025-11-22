@@ -4,7 +4,7 @@ import json
 import pathlib
 
 from dataclasses import dataclass
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, TypeVar, Optional, Union
 from random import random, seed, randrange, Random
 
 
@@ -28,8 +28,8 @@ class Operation:
 
 @dataclass
 class Insert(Operation):
-    left_op: int | None
-    right_op: int | None
+    left_op: Optional[int]
+    right_op: Optional[int]
     char: str
 
     def __dict__(self) -> dict:
@@ -57,22 +57,24 @@ class Remove(Operation):
 class Node:
     def __init__(self, data: str):
         self.data = data
-        self.next: Node | None = None
+        self.next: Optional[Node] = None
 
 
-def to_string(head: Node | None) -> str:
+def to_string(head: Optional[Node]) -> str:
     if not (node := head): return ""
     s = node.data
     while node := node.next: s += node.data
     return s
 
 
-def get[T](list: List[T], idx: int) -> T | None:
+T = TypeVar("T")
+
+def get(list: List[T], idx: int) -> Optional[T]:
     try: return list[idx]
     except IndexError: return None
 
 
-def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, int | None]]) -> Tuple[int | None, int | None, int | None]:
+def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, Optional[int]]]) -> Tuple[Optional[int], Optional[int], Optional[int]]:
     before_pos, left_op, right_op = None, None, None
     for (pos, (op_num, fpos)) in enumerate(doc_state):
         if fpos is not None and fpos > final_pos:
@@ -83,11 +85,11 @@ def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, int | None]]) 
     return before_pos, left_op, right_op,
 
 
-def generate_operations(data: str) -> List[Remove | Insert]:
+def generate_operations(data: str) -> List[Union[Remove, Insert]]:
     data_pool = {elem for elem in enumerate(data)}
-    doc_state: List[Tuple[int, int | None]] = []
+    doc_state: List[Tuple[int, Optional[int]]] = []
     to_remove_num = 0
-    ops: List[Remove | Insert] = []
+    ops: List[Union[Remove, Insert]] = []
     op_num = -1
 
     def gen_remove(to_remove_num: int) -> int:
@@ -118,16 +120,15 @@ def generate_operations(data: str) -> List[Remove | Insert]:
         else:
             to_remove_num += 1
             rand = randrange(1 + len(doc_state))
-            match rand:
-                case 0:
-                    left_op = None
-                    right_op = None if get(doc_state, 0) is None else doc_state[0][0]
-                case _ if rand == len(doc_state):
-                    left_op = None if get(doc_state, -1) is None else doc_state[-1][0]
-                    right_op = None
-                case _:
-                    left_op, _ = doc_state[rand - 1]
-                    right_op, _ = doc_state[rand]
+            if rand == 0:
+                left_op = None
+                right_op = None if get(doc_state, 0) is None else doc_state[0][0]
+            elif rand == len(doc_state):
+                left_op = None if get(doc_state, -1) is None else doc_state[-1][0]
+                right_op = None
+            else:
+                left_op, _ = doc_state[rand - 1]
+                right_op, _ = doc_state[rand]
             ops.append(Insert(PEER_ID, op_num, left_op, right_op, "#"))
             doc_state.insert(rand, (op_num, None))
     while to_remove_num != 0:
@@ -135,38 +136,42 @@ def generate_operations(data: str) -> List[Remove | Insert]:
         to_remove_num = gen_remove(to_remove_num)
     return ops
 
-def eval_ops(ops: List[Remove | Insert]) -> str:
-    doc_list: Node | None = None
+def eval_ops(ops: List[Union[Remove, Insert]]) -> str:
+    doc_list: Optional[Node] = None
     op_to_node: Dict[int, Node] = {}
     for (op_num, op) in enumerate(ops):
-        match op:
-            case Insert(_, _, left_op, _, ch):
-                new = Node(ch)
-                op_to_node[op_num] = new
-                if left_op is None:
-                    new.next = doc_list
-                    doc_list = new
-                else:
-                    before = op_to_node[left_op]
-                    if after := before.next:
-                        new.next = after
-                    before.next = new
-            case Remove(_, _, op_num):
-                to_remove_node = op_to_node[op_num]
-                if doc_list is to_remove_node:
-                    doc_list = doc_list.next  # type: ignore
-                    continue
-                node = doc_list  # type: ignore
-                while node.next != to_remove_node:  # type: ignore
-                    node = node.next  # type: ignore
-                if node.next.next is None:  # type: ignore
-                    node.next = None  # type: ignore
-                else:
-                    node.next = node.next.next  # type: ignore
+        if isinstance(op, Insert):
+            # Insert(peer_id, timestamp, left_op, right_op, char)
+            left_op = op.left_op
+            ch = op.char
+            new = Node(ch)
+            op_to_node[op_num] = new
+            if left_op is None or left_op == -1:
+                new.next = doc_list
+                doc_list = new
+            else:
+                before = op_to_node[left_op]
+                if after := before.next:
+                    new.next = after
+                before.next = new
+        elif isinstance(op, Remove):
+            # Remove(peer_id, timestamp, to_remove_op)
+            to_remove_op = op.to_remove_op
+            to_remove_node = op_to_node[to_remove_op]
+            if doc_list is to_remove_node:
+                doc_list = doc_list.next  # type: ignore
+                continue
+            node = doc_list  # type: ignore
+            while node.next != to_remove_node:  # type: ignore
+                node = node.next  # type: ignore
+            if node.next.next is None:  # type: ignore
+                node.next = None  # type: ignore
+            else:
+                node.next = node.next.next  # type: ignore
     return to_string(doc_list)  # type: ignore
 
 
-def write_file(input_data: List[Insert | Remove]) -> None:
+def write_file(input_data: List[Union[Insert, Remove]]) -> None:
     if not os.path.exists(OUTPUT_DIR): os.mkdir(OUTPUT_DIR)
 
     output_data: dict = {"data": [data.__dict__() for data in input_data]}

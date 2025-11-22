@@ -1,11 +1,10 @@
 use crate::Doc;
 use crate::side::Side;
 use crate::types::{DigitType, NodeKey};
+use serde::Deserialize;
+use std::fs;
 use std::iter::zip;
 use std::sync::Arc;
-use std::fs;
-use serde::Deserialize;
-
 
 fn from_digits(digits: &[DigitType]) -> Arc<[NodeKey]> {
     digits
@@ -131,91 +130,50 @@ pub struct OperationData {
 #[test]
 pub fn relative_insert_remove_test() {
     let mut this_side = Side::new(123);
-    let data = fs::read_to_string("../data/relative_insert_remove.json").unwrap();
-    let data_wrapper: DataWrapper = serde_json::from_str(&data.as_str()).unwrap();
-    println!("Parsed data: {:?}", data_wrapper);
+    let data = fs::read_to_string("../data/relative_insert_remove.json")
+        .expect("Failed to read data file");
+    let data_wrapper: DataWrapper = serde_json::from_str(&data).expect("Failed to parse JSON");
+    println!("Parsed data with {} operations", data_wrapper.data.len());
+
     let mut doc = Doc::new();
-    let mut ids = Vec::new();
-    let mut new_id = doc.bos_id();
+    // ids maps op_index -> NodeKey. Use Option because Remove ops don't produce a NodeKey.
+    let mut ids: Vec<Option<Arc<[NodeKey]>>> = Vec::new();
     let eos = doc.eos_id();
     let bos = doc.bos_id();
-    for op in data_wrapper.data.iter() {
-        ids.sort_by_key(|id: &Arc<[NodeKey]>| id.as_ref()[0].digit);
-        let left_node: Arc<[NodeKey]> = Arc::from([NodeKey {
-            digit: op.left_op.unwrap_or(-1).abs() as u32,
-            peer_id: op.peer_id,
-            time: op.timestamp,
-        }]);
-        println!("Left node: {:?}", left_node);
 
-        let right_node: Arc<[NodeKey]> = Arc::from([NodeKey {
-            digit: op.right_op.unwrap_or(0).abs() as u32,
-            peer_id: op.peer_id,
-            time: op.timestamp,
-        }]);
-        println!("Right node: {:?}", right_node);
-
+    for (_, op) in data_wrapper.data.iter().enumerate() {
         if op.op_type == "insert" {
-            if op.left_op.unwrap_or(-1) == -1 && op.right_op.unwrap_or(-1) == -1{
-                println!("Both none case1");
-                new_id = doc.generate_id(&bos, &eos, &mut this_side);
-                println!("Both none case2");
-            }
-            else if op.right_op.unwrap_or(-1) == -1{
-                println!("Right none case1");
-                let left_id = &ids[op.left_op.unwrap_or(0) as usize];
-                new_id = doc.generate_id(left_id, &eos, &mut this_side);
-                println!("Right none case2");
-            }
-            else if op.left_op.unwrap_or(-1) == -1 {
-                println!("Left none case1");
-                let right_id = &ids[op.right_op.unwrap_or(0) as usize];
-                new_id = doc.generate_id(&bos, right_id, &mut this_side);
-                println!("Left none case2");
-            }
-            else {
-                println!("Normal case1");
-                let left_id = &ids[op.left_op.unwrap_or(0) as usize];
-                let right_id = &ids[op.right_op.unwrap_or(0) as usize];
-                new_id = doc.generate_id(left_id, right_id, &mut this_side);
-                println!("Normal case2");
-            }
-            ids.push(new_id.clone());
+            let left_id = match op.left_op {
+                Some(idx) if idx != -1 => ids[idx as usize].as_ref().expect("Left ID should exist"),
+                _ => &bos,
+            };
+            let right_id = match op.right_op {
+                Some(idx) if idx != -1 => {
+                    ids[idx as usize].as_ref().expect("Right ID should exist")
+                }
+                _ => &eos,
+            };
 
+            let new_id = doc.generate_id(left_id, right_id, &mut this_side);
+            ids.push(Some(new_id.clone()));
 
-            let pos: Arc<[NodeKey]> = Arc::from([NodeKey {
-                digit: new_id.as_ref()[0].digit,
-                peer_id: op.peer_id,
-                time: op.timestamp,
-            }]);
-            println!("Inserting at position: {:?} char: {:?}", pos, op.char);
-                
-            doc.insert_id(pos, op.char.unwrap_or(' '));
-            println!("After insert: {:?}", doc.collect_string());
-
-
+            doc.insert_id(new_id, op.char.unwrap_or(' '))
+                .expect("Insert failed");
         } else if op.op_type == "remove" {
-            println!("Remove operation detected");
-            if op.to_remove_op.unwrap_or(-1) != -1{
-                let pos_to_remove: Arc<[NodeKey]> = Arc::from([NodeKey {
-                    digit: op.to_remove_op.unwrap_or(-1) as u32,
-                    peer_id: op.peer_id,
-                    time: op.timestamp,
-                }]);
-                println!("Removing at position: {:?}", pos_to_remove);
-                let remove_id = &ids[op.to_remove_op.unwrap_or(0) as usize];
-                doc.remove_id(remove_id);
-                ids.remove(op.to_remove_op.unwrap_or(0) as usize);
-                println!("After remove: {:?}", doc.collect_string());
+            if let Some(idx) = op.to_remove_op {
+                if idx != -1 {
+                    let remove_id = ids[idx as usize]
+                        .as_ref()
+                        .expect("ID to remove should exist");
+                    doc.remove_id(remove_id).expect("Remove failed");
+                }
             }
+            // Push None to maintain index alignment with the operations list
+            ids.push(None);
         }
-        let text = doc.collect_string();
-
-        //let ground = std::fs::read_to_string("../data/test_dataset_adding.json_ground_truth.txt").unwrap();
-        //let ground = ground.replace("\r\n", "\n");
-
-        println!("Reconstructed text: {}", text);
-
-        //assert_eq!(text, ground, "\nReconstructed text does not match ground truth");
     }
+
+    let text = doc.collect_string();
+    println!("Final text: {}", text);
+    assert_eq!(text, "abcdefghijklmnoprstuxyz");
 }
