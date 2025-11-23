@@ -4,9 +4,8 @@ import json
 import pathlib
 
 from dataclasses import dataclass
-from typing import List, Tuple, Dict, TypeVar, Optional, Union
-from random import random, seed, randrange, Random
-
+from typing import List, Tuple, Dict, Optional
+from random import random, randrange
 
 PEER_ID = 123
 TEST_STR = "abcdefghijklmnoprstuxyz"
@@ -19,7 +18,7 @@ class Operation:
     peer_id: int
     timestamp: int
 
-    def __dict__(self) -> dict:
+    def to_dict(self) -> Dict[str, int | str]:
         return {
             "peer_id": self.peer_id,
             "timestamp": self.timestamp
@@ -32,10 +31,10 @@ class Insert(Operation):
     right_op: Optional[int]
     char: str
 
-    def __dict__(self) -> dict:
+    def to_dict(self) -> Dict[str, int | str]:
         return {
             "op_type": "insert",
-            **super(Insert, self).__dict__(),
+            **super(Insert, self).to_dict(),
             "left_op": self.left_op if self.left_op is not None else -1,
             "right_op": self.right_op if self.right_op is not None else -1,
             "char": self.char
@@ -46,10 +45,10 @@ class Insert(Operation):
 class Remove(Operation):
     to_remove_op: int
 
-    def __dict__(self) -> dict:
+    def to_dict(self) -> Dict[str, int | str]:
         return {
             "op_type": "remove",
-            **super(Remove, self).__dict__(),
+            **super(Remove, self).to_dict(),
             "to_remove_op": self.to_remove_op
         }
 
@@ -59,19 +58,22 @@ class Node:
         self.data = data
         self.next: Optional[Node] = None
 
+    @staticmethod
+    def to_string(head: Optional[Node]) -> str:
+      if not (node := head):
+          return ""
+      s = node.data
+      while node := node.next:
+          s += node.data
+      return s
 
-def to_string(head: Optional[Node]) -> str:
-    if not (node := head): return ""
-    s = node.data
-    while node := node.next: s += node.data
-    return s
 
 
-T = TypeVar("T")
-
-def get(list: List[T], idx: int) -> Optional[T]:
-    try: return list[idx]
-    except IndexError: return None
+def get[T](list: List[T], idx: int) -> Optional[T]:
+    try:
+        return list[idx]
+    except IndexError:
+        return None
 
 
 def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, Optional[int]]]) -> Tuple[Optional[int], Optional[int], Optional[int]]:
@@ -85,11 +87,11 @@ def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, Optional[int]]
     return before_pos, left_op, right_op,
 
 
-def generate_operations(data: str) -> List[Union[Remove, Insert]]:
+def generate_operations(data: str) -> List[Remove | Insert]:
     data_pool = {elem for elem in enumerate(data)}
     doc_state: List[Tuple[int, Optional[int]]] = []
     to_remove_num = 0
-    ops: List[Union[Remove, Insert]] = []
+    ops: List[Remove | Insert] = []
     op_num = -1
 
     def gen_remove(to_remove_num: int) -> int:
@@ -122,9 +124,11 @@ def generate_operations(data: str) -> List[Union[Remove, Insert]]:
             rand = randrange(1 + len(doc_state))
             if rand == 0:
                 left_op = None
-                right_op = None if get(doc_state, 0) is None else doc_state[0][0]
+                right_op = None if get(
+                    doc_state, 0) is None else doc_state[0][0]
             elif rand == len(doc_state):
-                left_op = None if get(doc_state, -1) is None else doc_state[-1][0]
+                left_op = None if get(
+                    doc_state, -1) is None else doc_state[-1][0]
                 right_op = None
             else:
                 left_op, _ = doc_state[rand - 1]
@@ -136,51 +140,49 @@ def generate_operations(data: str) -> List[Union[Remove, Insert]]:
         to_remove_num = gen_remove(to_remove_num)
     return ops
 
-def eval_ops(ops: List[Union[Remove, Insert]]) -> str:
+
+def eval_ops(ops: List[Remove | Insert]) -> str:
     doc_list: Optional[Node] = None
     op_to_node: Dict[int, Node] = {}
     for (op_num, op) in enumerate(ops):
-        if isinstance(op, Insert):
-            # Insert(peer_id, timestamp, left_op, right_op, char)
-            left_op = op.left_op
-            ch = op.char
-            new = Node(ch)
-            op_to_node[op_num] = new
-            if left_op is None or left_op == -1:
-                new.next = doc_list
-                doc_list = new
-            else:
-                before = op_to_node[left_op]
-                if after := before.next:
-                    new.next = after
-                before.next = new
-        elif isinstance(op, Remove):
-            # Remove(peer_id, timestamp, to_remove_op)
-            to_remove_op = op.to_remove_op
-            to_remove_node = op_to_node[to_remove_op]
-            if doc_list is to_remove_node:
-                doc_list = doc_list.next  # type: ignore
-                continue
-            node = doc_list  # type: ignore
-            while node.next != to_remove_node:  # type: ignore
-                node = node.next  # type: ignore
-            if node.next.next is None:  # type: ignore
-                node.next = None  # type: ignore
-            else:
-                node.next = node.next.next  # type: ignore
-    return to_string(doc_list)  # type: ignore
+        match op:
+            case Insert(_, _, left_op, _, ch):
+                new = Node(ch)
+                op_to_node[op_num] = new
+                if left_op is None:
+                    new.next = doc_list
+                    doc_list = new
+                else:
+                    before = op_to_node[left_op]
+                    if after := before.next:
+                        new.next = after
+                    before.next = new
+            case Remove(_, _, op_num):
+                to_remove_node = op_to_node[op_num]
+                if doc_list is to_remove_node:
+                    doc_list = doc_list.next  # type: ignore
+                    continue
+                node = doc_list  # type: ignore
+                while node.next != to_remove_node:  # type: ignore
+                    node = node.next  # type: ignore
+                if node.next.next is None:  # type: ignore
+                    node.next = None  # type: ignore
+                else:
+                    node.next = node.next.next  # type: ignore
+    return Node.to_string(doc_list)  # type: ignore
 
 
-def write_file(input_data: List[Union[Insert, Remove]]) -> None:
-    if not os.path.exists(OUTPUT_DIR): os.mkdir(OUTPUT_DIR)
-
-    output_data: dict = {"data": [data.__dict__() for data in input_data]}
+def write_file(input_data: List[Insert | Remove]) -> None:
+    if not os.path.exists(OUTPUT_DIR):
+        os.mkdir(OUTPUT_DIR)
+    output_data: Dict[str, str | List[Dict[str, int | str]]] = {"result": TEST_STR, "operations": [data.to_dict() for data in input_data]}
     with open(os.path.join(OUTPUT_DIR, OUTPUT_FILENAME), "w") as output_file:
         json.dump(output_data, output_file)
 
-if __name__ == "__main__":
 
-    try: ops = generate_operations(TEST_STR)
+if __name__ == "__main__":
+    try:
+        ops = generate_operations(TEST_STR)
     except IndexError:
         print("test failed")
         sys.exit(-1)

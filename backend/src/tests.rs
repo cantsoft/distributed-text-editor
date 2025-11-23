@@ -113,7 +113,8 @@ pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
 
 #[derive(Debug, Deserialize)]
 pub struct DataWrapper {
-    pub data: Vec<OperationData>,
+    pub result: String,
+    pub operations: Vec<OperationData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -133,7 +134,10 @@ pub fn relative_insert_remove_test() {
     let data = fs::read_to_string("../data/relative_insert_remove.json")
         .expect("Failed to read data file");
     let data_wrapper: DataWrapper = serde_json::from_str(&data).expect("Failed to parse JSON");
-    println!("Parsed data with {} operations", data_wrapper.data.len());
+    println!(
+        "Parsed data with {} operations",
+        data_wrapper.operations.len()
+    );
 
     let mut doc = Doc::new();
     // ids maps op_index -> NodeKey. Use Option because Remove ops don't produce a NodeKey.
@@ -141,7 +145,7 @@ pub fn relative_insert_remove_test() {
     let eos = doc.eos_id();
     let bos = doc.bos_id();
 
-    for (_, op) in data_wrapper.data.iter().enumerate() {
+    for (_, op) in data_wrapper.operations.iter().enumerate() {
         if op.op_type == "insert" {
             let left_id = match op.left_op {
                 Some(idx) if idx != -1 => ids[idx as usize].as_ref().expect("Left ID should exist"),
@@ -175,5 +179,5 @@ pub fn relative_insert_remove_test() {
 
     let text = doc.collect_string();
     println!("Final text: {}", text);
-    assert_eq!(text, "abcdefghijklmnoprstuxyz");
+    assert_eq!(text, data_wrapper.result);
 }
