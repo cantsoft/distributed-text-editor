@@ -112,25 +112,38 @@ pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DataWrapper {
-    pub result: String,
-    pub operations: Vec<OperationData>,
+struct InsertOp {
+    peer_id: u32,
+    timestamp: u32,
+    left_op: i32,
+    right_op: i32,
+    char: char,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OperationData {
-    pub op_type: String, // "insert" or "remove"
-    pub peer_id: u8,
-    pub timestamp: u64,
-    pub left_op: Option<i32>, // use i32 to allow -1
-    pub right_op: Option<i32>,
-    pub char: Option<char>,
-    pub to_remove_op: Option<i32>,
+struct RemoveOp {
+    peer_id: u32,
+    timestamp: u32,
+    to_remove_op: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "op_type")]
+enum Operation {
+    #[serde(rename = "insert")]
+    Insert(InsertOp),
+    #[serde(rename = "remove")]
+    Remove(RemoveOp),
+}
+
+#[derive(Debug, Deserialize)]
+struct DataWrapper {
+    result: String,
+    operations: Vec<Operation>,
 }
 
 #[test]
 pub fn relative_insert_remove_test() {
-    let mut this_side = Side::new(123);
     let data = fs::read_to_string("../data/relative_insert_remove.json")
         .expect("Failed to read data file");
     let data_wrapper: DataWrapper = serde_json::from_str(&data).expect("Failed to parse JSON");
@@ -139,44 +152,38 @@ pub fn relative_insert_remove_test() {
         data_wrapper.operations.len()
     );
 
+    let mut this_side = Side::new(123);
     let mut doc = Doc::new();
     // ids maps op_index -> NodeKey. Use Option because Remove ops don't produce a NodeKey.
     let mut ids: Vec<Option<Arc<[NodeKey]>>> = Vec::new();
     let eos = doc.eos_id();
     let bos = doc.bos_id();
 
-    for (_, op) in data_wrapper.operations.iter().enumerate() {
-        if op.op_type == "insert" {
-            let left_id = match op.left_op {
-                Some(idx) if idx != -1 => ids[idx as usize].as_ref().expect("Left ID should exist"),
-                _ => &bos,
-            };
-            let right_id = match op.right_op {
-                Some(idx) if idx != -1 => {
-                    ids[idx as usize].as_ref().expect("Right ID should exist")
-                }
-                _ => &eos,
-            };
-
-            let new_id = doc.generate_id(left_id, right_id, &mut this_side);
-            ids.push(Some(new_id.clone()));
-
-            doc.insert_id(new_id, op.char.unwrap_or(' '))
-                .expect("Insert failed");
-        } else if op.op_type == "remove" {
-            if let Some(idx) = op.to_remove_op {
-                if idx != -1 {
-                    let remove_id = ids[idx as usize]
-                        .as_ref()
-                        .expect("ID to remove should exist");
-                    doc.remove_id(remove_id).expect("Remove failed");
-                }
+    for op in data_wrapper.operations.iter() {
+        match op {
+            Operation::Insert(insert_op) => {
+                let left_id = match insert_op.left_op {
+                    -1 => &bos,
+                    idx => ids[idx as usize].as_ref().expect("Left ID should exist"),
+                };
+                let right_id = match insert_op.right_op {
+                    -1 => &eos,
+                    idx => ids[idx as usize].as_ref().expect("Right ID should exist"),
+                };
+                let new_id = doc.generate_id(left_id, right_id, &mut this_side);
+                ids.push(Some(new_id.clone()));
+                doc.insert_id(new_id, insert_op.char)
+                    .expect("Insert failed");
             }
-            // Push None to maintain index alignment with the operations list
-            ids.push(None);
+            Operation::Remove(remove_op) => {
+                let remove_id = ids[remove_op.to_remove_op as usize]
+                    .as_ref()
+                    .expect("ID to remove should exist");
+                doc.remove_id(remove_id).expect("Remove failed");
+                ids.push(None);
+            }
         }
     }
-
     let text = doc.collect_string();
     println!("Final text: {}", text);
     assert_eq!(text, data_wrapper.result);
