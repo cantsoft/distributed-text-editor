@@ -3,7 +3,6 @@ use crate::types::{
     DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, NodeKey, RESERVED_PEER,
 };
 use core::panic;
-use napi_derive::napi;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
 use rand::rngs::StdRng;
@@ -15,7 +14,6 @@ use std::sync::Arc;
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
 
-#[napi]
 #[derive(Debug)]
 pub struct Doc {
     id_list: BTreeMap<Arc<[NodeKey]>, Option<char>>,
@@ -23,9 +21,7 @@ pub struct Doc {
     boundry: DigitType,
 }
 
-#[napi]
 impl Doc {
-    #[napi(constructor)]
     pub fn new() -> Self {
         let mut id_list = BTreeMap::default();
         id_list.insert(
@@ -43,12 +39,10 @@ impl Doc {
         }
     }
 
-    #[napi]
     pub fn remove_absolute_wrapper(&mut self, absolute_position: u32) {
         self.remove_absolute(absolute_position as usize)
             .expect("remove failed");
     }
-    #[napi]
     pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
         let mut side = Side::new(123);
         self.insert_absolute(
@@ -113,12 +107,10 @@ impl Doc {
         Ok(())
     }
 
-    #[napi]
     pub fn collect_string(&self) -> String {
         self.id_list.values().filter_map(|ch| *ch).collect()
     }
 
-    // use this function to generate new id between p and q
     pub(crate) fn generate_id(
         &mut self,
         p: &[NodeKey],

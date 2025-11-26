@@ -1,24 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 
-import rust from "../../native/index.node";
-
 // Custom APIs for renderer
 const api = {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),
   close: () => ipcRenderer.send("window:close"),
-  createDocument: () => {
-    const doc = new rust.Doc();
-    const wrapper = {};
-    const methods = Object.getOwnPropertyNames(rust.Doc.prototype).filter(
-      (prop) => typeof doc[prop] === "function" && prop !== "constructor",
-    );
-    for (const method of methods) {
-      wrapper[method] = (...args: unknown[]) => doc[method](...args);
-    }
-    return wrapper;
-  },
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

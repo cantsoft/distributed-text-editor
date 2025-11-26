@@ -2,8 +2,25 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import { join } from 'path';
+const { spawn } = require('node:child_process');
+const path = require('path');
 
 function createWindow(): void {
+
+  const backend = spawn(path.resolve(__dirname, '../../native/backend'));
+  backend.stdout.on('data', (data) => {
+    const text = data.toString();
+    process.stdout.write(`[RUST]: ${text}`);
+    try {
+      const json = JSON.parse(text);
+      console.log("Zdekodowano:", json);
+    } catch (e) {
+    }
+  });
+  backend.stdin.write("HELLO FROM FRONTEND\n");
+  backend.on('close', (code) => {
+    console.log(`Backend zakończony z kodem: ${code}`);
+  });
 
   const main_window = new BrowserWindow({
     width: 800,
