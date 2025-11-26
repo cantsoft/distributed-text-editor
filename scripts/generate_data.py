@@ -4,9 +4,8 @@ import json
 import pathlib
 
 from dataclasses import dataclass
-from typing import List, Tuple, Dict
-from random import random, seed, randrange, Random
-
+from typing import List, Tuple, Dict, Optional
+from random import random, randrange
 
 PEER_ID = 123
 TEST_STR = "abcdefghijklmnoprstuxyz"
@@ -19,7 +18,7 @@ class Operation:
     peer_id: int
     timestamp: int
 
-    def __dict__(self) -> dict:
+    def to_dict(self) -> Dict[str, int | str]:
         return {
             "peer_id": self.peer_id,
             "timestamp": self.timestamp
@@ -28,14 +27,14 @@ class Operation:
 
 @dataclass
 class Insert(Operation):
-    left_op: int | None
-    right_op: int | None
+    left_op: Optional[int]
+    right_op: Optional[int]
     char: str
 
-    def __dict__(self) -> dict:
+    def to_dict(self) -> Dict[str, int | str]:
         return {
             "op_type": "insert",
-            **super(Insert, self).__dict__(),
+            **super(Insert, self).to_dict(),
             "left_op": self.left_op if self.left_op is not None else -1,
             "right_op": self.right_op if self.right_op is not None else -1,
             "char": self.char
@@ -46,10 +45,10 @@ class Insert(Operation):
 class Remove(Operation):
     to_remove_op: int
 
-    def __dict__(self) -> dict:
+    def to_dict(self) -> Dict[str, int | str]:
         return {
             "op_type": "remove",
-            **super(Remove, self).__dict__(),
+            **super(Remove, self).to_dict(),
             "to_remove_op": self.to_remove_op
         }
 
@@ -57,22 +56,27 @@ class Remove(Operation):
 class Node:
     def __init__(self, data: str):
         self.data = data
-        self.next: Node | None = None
+        self.next: Optional[Node] = None
+
+    @staticmethod
+    def to_string(head: Optional[Node]) -> str:
+      if not (node := head):
+          return ""
+      s = node.data
+      while node := node.next:
+          s += node.data
+      return s
 
 
-def to_string(head: Node | None) -> str:
-    if not (node := head): return ""
-    s = node.data
-    while node := node.next: s += node.data
-    return s
+
+def get[T](list: List[T], idx: int) -> Optional[T]:
+    try:
+        return list[idx]
+    except IndexError:
+        return None
 
 
-def get[T](list: List[T], idx: int) -> T | None:
-    try: return list[idx]
-    except IndexError: return None
-
-
-def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, int | None]]) -> Tuple[int | None, int | None, int | None]:
+def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, Optional[int]]]) -> Tuple[Optional[int], Optional[int], Optional[int]]:
     before_pos, left_op, right_op = None, None, None
     for (pos, (op_num, fpos)) in enumerate(doc_state):
         if fpos is not None and fpos > final_pos:
@@ -85,7 +89,7 @@ def get_serounding_ops(final_pos: int, doc_state: List[Tuple[int, int | None]]) 
 
 def generate_operations(data: str) -> List[Remove | Insert]:
     data_pool = {elem for elem in enumerate(data)}
-    doc_state: List[Tuple[int, int | None]] = []
+    doc_state: List[Tuple[int, Optional[int]]] = []
     to_remove_num = 0
     ops: List[Remove | Insert] = []
     op_num = -1
@@ -118,16 +122,17 @@ def generate_operations(data: str) -> List[Remove | Insert]:
         else:
             to_remove_num += 1
             rand = randrange(1 + len(doc_state))
-            match rand:
-                case 0:
-                    left_op = None
-                    right_op = None if get(doc_state, 0) is None else doc_state[0][0]
-                case _ if rand == len(doc_state):
-                    left_op = None if get(doc_state, -1) is None else doc_state[-1][0]
-                    right_op = None
-                case _:
-                    left_op, _ = doc_state[rand - 1]
-                    right_op, _ = doc_state[rand]
+            if rand == 0:
+                left_op = None
+                right_op = None if get(
+                    doc_state, 0) is None else doc_state[0][0]
+            elif rand == len(doc_state):
+                left_op = None if get(
+                    doc_state, -1) is None else doc_state[-1][0]
+                right_op = None
+            else:
+                left_op, _ = doc_state[rand - 1]
+                right_op, _ = doc_state[rand]
             ops.append(Insert(PEER_ID, op_num, left_op, right_op, "#"))
             doc_state.insert(rand, (op_num, None))
     while to_remove_num != 0:
@@ -135,8 +140,9 @@ def generate_operations(data: str) -> List[Remove | Insert]:
         to_remove_num = gen_remove(to_remove_num)
     return ops
 
+
 def eval_ops(ops: List[Remove | Insert]) -> str:
-    doc_list: Node | None = None
+    doc_list: Optional[Node] = None
     op_to_node: Dict[int, Node] = {}
     for (op_num, op) in enumerate(ops):
         match op:
@@ -163,19 +169,20 @@ def eval_ops(ops: List[Remove | Insert]) -> str:
                     node.next = None  # type: ignore
                 else:
                     node.next = node.next.next  # type: ignore
-    return to_string(doc_list)  # type: ignore
+    return Node.to_string(doc_list)  # type: ignore
 
 
 def write_file(input_data: List[Insert | Remove]) -> None:
-    if not os.path.exists(OUTPUT_DIR): os.mkdir(OUTPUT_DIR)
-
-    output_data: dict = {"data": [data.__dict__() for data in input_data]}
+    if not os.path.exists(OUTPUT_DIR):
+        os.mkdir(OUTPUT_DIR)
+    output_data: Dict[str, str | List[Dict[str, int | str]]] = {"result": TEST_STR, "operations": [data.to_dict() for data in input_data]}
     with open(os.path.join(OUTPUT_DIR, OUTPUT_FILENAME), "w") as output_file:
         json.dump(output_data, output_file)
 
-if __name__ == "__main__":
 
-    try: ops = generate_operations(TEST_STR)
+if __name__ == "__main__":
+    try:
+        ops = generate_operations(TEST_STR)
     except IndexError:
         print("test failed")
         sys.exit(-1)
