@@ -1,9 +1,5 @@
-% --------------------------------------------------------------
-%  Team Project – Weekly Report
-% --------------------------------------------------------------
 \documentclass[12pt]{article}
 
-% ---- Packages --------------------------------------------------
 \usepackage[margin=1in]{geometry}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
@@ -25,7 +21,6 @@
   Sławek Brzózka \\
   Julian Konowalski \\
   Jan Zadrąg \\
-  Jan Zakroczymski \\
 }
 \date{\today}
 
@@ -36,15 +31,9 @@
 \thispagestyle{fancy}
 \clearpage
 
-% --------------------------------------------------------------
-%  Table of Contents
-% --------------------------------------------------------------
 \tableofcontents
 \clearpage
 
-% --------------------------------------------------------------
-%  Weekly Sections
-% --------------------------------------------------------------
 \section{Research and design decisions}
 \subsection{Problem statement}
 
@@ -88,7 +77,7 @@ integration with our custom CRDT model, resulting in data duplication and overco
 
 For these reasons, we decided to go with Rust for the core logic and \href{https://react.dev}{React} 
 embedded in an \href{https://www.electronjs.org}{Electron} window for the GUI layer. We experimented 
-with two integration approaches: compiling Rust to WebAssembly using \href{https://github.com/drager/wasm-pack}{wasm-pack}, 
+with two integration approaches: compiling Rust to \href{https://webassembly.org/}{WebAssembly} using \href{https://github.com/drager/wasm-pack}{wasm-pack}, 
 and building a C-style shared library to be consumed from \href{https://nodejs.org/en}{Node.js} via 
 \href{https://napi.rs/}{napi-rs}. Both approaches presented technical difficulties, but we preliminarily 
 chose napi-rs due to its superior performance, disregarding its lower portability at this stage of the 
@@ -118,22 +107,68 @@ peer-reviewed and finally merged into the main branch after resolving the confli
 the dedicated GUI branch for future work, including backend integration and potential adjustments to 
 frontend logic.
 
-\section{Prototyping core data structure}
+\section{Prototyping the core data structure}
 
 \subsection{Sources}
 
-The relative simplicity of implementation and flexibility of Logoot\cite{logoot} structures in terms of deletion and even undo operations led us to adopt this approach. A known disadvantage of this method is the potentially rapid growth in index length. This problem has been addressed by an improvement known as LSEQ\cite{lseq}, which we will also try to adapt.
+The relative simplicity of implementation and flexibility of Logoot\cite{logoot} structures in terms 
+of delete and undo operations led us to adopt this approach. A known disadvantage of this method is 
+the rapid growth of index lengths in certain edge cases (inserting at the beggining of the file). This 
+problem has been addressed by an improvement known as LSEQ\cite{lseq}, which we will also try to adapt.
 
-\subsection{Index generation}
+\subsection{Index Generation}
 
-Due to the fact that the target system is designed to support multi-user editing, beyond the standard logoot digits, our structure also includes a field containing the ID of the peer, as well as a timestamp for resolving conflicts in the future. For now, however, for testing purposes, both of these values are set to zero and we are focusing on generating unique identifiers. 
+Due to the fact that the target system is designed to support multi-user editing our structure also 
+includes a field containing the peer's ID, as well as a timestamp for resolving conflicts in the future. 
+For now both of these values have been set to zero, as we have decided to focus on generating unique 
+identifiers. 
 
-We immediately implemented the improved allocation strategy known from LSEQ, but for now we have not used base doubling and are using a fixed base equal to \(2^{32}\).
+We implemented the improved allocation strategy known from LSEQ, but instead of using base doubling 
+we have settled for a fixed identifier base equal to \(2^{32}\). We plan to change this in the future
+updates.
 
-\subsection{Tree structure}
-We used an n-ary tree structure to represent our document, which is natural for our algorithm. Although its arity can be very high, it is also expected to be sparsely populated. Therefore, we used a BTreeMap to store the children in the vertices of our tree. This structure's advantage is that it can be resized relatively cheaply, without reallocation or wasting memory.
+\subsection{Tree Structure}
 
-Currently, only the insert operation and the pre-order tree traversal have been implemented to compile the entire document into a single string. Ultimately, these operations will be based on iterators, but the initial goal was to create a minimal example that verifies the correctness of ID generation.
+We used an n-ary tree structure to represent our document, which is natural for our algorithm. Although 
+its arity can be very high, it is also expected to be sparsely populated. Therefore, we used a BTreeMap 
+to store the children within the vertices of our tree. The key advantage of this approach is it's ability
+to be resized without memory reallocations.
+
+Currently, only the insert operation and the pre-order tree traversal have been implemented to compile 
+the entire document into a single string. Ultimately, these operations will be based on iterators, but 
+the initial goal was to create a minimal working example that verifies the correctness of the ID generation
+algorithm.
+
+\section{Test Data Generation}
+
+To validate the data structure implementation, we developed a Python script that accepts a target string 
+and generates a corresponding sequence of edit operations (insertions and deletions). This sequence ensures
+that the final document state replicates the input string. The operations are serialized into a JSON format
+for use in automated tests. Future validation plans include utilizing corpora such as \href{https://www.wikipedia.org/}{Wikipedia} 
+to conduct large-scale performance testing on natural language texts.
+
+\section{Frontend-Backend Integration}
+
+We opted to bind the backend structure directly to the GUI, temporarily bypassing network communication layers. 
+This isolation strategy allows for the verification of core logic without the overhead of distributed system
+complexities,simplifying the debugging process. Consequently, we successfully identified and resolved
+a logic error concerning the specific order of character deletion.
+
+\subsection{Data Structure Refinement}
+
+Addressing the aforementioned defect, we decided to simplify the underlying data structure. We transitioned from
+the explicit n-ary tree nodes to a flat storage model where all tree paths are stored directly in a BTreeMap.
+While this approach is less memory-efficient, we anticipate that the access time complexity remains comparable
+to the previous implementation.
+
+\section{IPC between frontend and backend}
+
+Because the backend must simultaneously act as both a server and a client, and also communicate with the frontend,
+we decided to create a separate process for it, which would receive and send messages to both the rest of the network
+and the user application. This approach requires implementing inter-process communication. The simplest and relatively
+fast solution is to connect STDIN and STDOUT between the frontend and backend, which we managed to achieve. Currently,
+the backend process is created during user application initialization. To standardize the message structure, we plan 
+to use \href{https://protobuf.dev/}{Protobf}, a widely supported solution for such applications.
 
 \begin{thebibliography}{9}
 
