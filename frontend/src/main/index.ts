@@ -5,6 +5,8 @@ import { join } from 'path';
 const { spawn } = require('node:child_process');
 const path = require('path');
 
+const protobuf = require("protobufjs");
+
 function createWindow(): void {
 
   const backend = spawn(path.resolve(__dirname, '../../native/backend'));
@@ -17,9 +19,16 @@ function createWindow(): void {
     } catch (e) {
     }
   });
-  backend.stdin.write("HELLO FROM FRONTEND\n");
-  backend.on('close', (code) => {
-    console.log(`Backend zakończony z kodem: ${code}`);
+
+  protobuf.load("../data.proto").then(function(root) {
+    var UserOperation = root.lookupType("dte.UserOperation");
+    var message = UserOperation.create({
+      position: 1,
+      insert: {char: 45}
+    });
+    var buffer = UserOperation.encode(message).finish();
+    backend.stdin.write(buffer);
+    backend.stdin.write("\n");
   });
 
   const main_window = new BrowserWindow({
