@@ -8,10 +8,15 @@ pub use doc::Doc;
 
 use std::io::{Write, stdin, stdout};
 
+use protobuf;
+
 fn main() {
     let _ = stdout().write("hello form backend\n".as_bytes());
     let mut str_buf = String::new();
     let size_or_err = stdin().read_line(&mut str_buf);
+
+    protobuf.parse_from();
+
     println!("{:?}", size_or_err);
     println!("{}", str_buf);
 }
