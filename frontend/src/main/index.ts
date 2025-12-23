@@ -7,28 +7,52 @@ const path = require('path');
 
 const protobuf = require("protobufjs");
 
-function createWindow(): void {
 
-  const backend = spawn(path.resolve(__dirname, '../../native/backend'));
-  backend.stdout.on('data', (data) => {
-    const text = data.toString();
-    process.stdout.write(`[RUST]: ${text}`);
-    try {
-      const json = JSON.parse(text);
-      console.log("Zdekodowano:", json);
-    } catch (e) {
+async function readFromBackend(): Promise<void> {
+  const root = await protobuf.load("../proto/frame.proto");
+  const UserOperation = root.lookupType("dte.UserOperation");
+
+  const backend = spawn(path.resolve(__dirname, "../../native/backend"));
+
+  let buffer = Buffer.alloc(0);
+
+  backend.stdout.on("data", (chunk) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    while (true) {
+      if (buffer.length < 4) break;
+      const msgLen = buffer.readUInt32BE(0);
+      if (buffer.length < 4 + msgLen) break;
+      const payload = buffer.subarray(4, 4 + msgLen);
+      try {
+        const message = UserOperation.decode(payload);
+        console.log("[Rust]:", message);
+      } catch (e) {
+        console.error("Decode error:", e);
+      }
+      buffer = buffer.subarray(4 + msgLen);
     }
   });
+  backend.stderr.on("data", (data) => {
+    console.error(`Rust Error: ${data}`);
+  });
+}
 
-  protobuf.load("../data.proto").then(function(root) {
-    var UserOperation = root.lookupType("dte.UserOperation");
-    var message = UserOperation.create({
-      position: 1,
-      insert: {char: 45}
+function createWindow(): void {
+  readFromBackend();
+  const backend = spawn(path.resolve(__dirname, "../../native/backend"));
+  protobuf.load("../proto/frame.proto").then(function (root) {
+    const UserOperation = root.lookupType("dte.UserOperation");
+    const message = UserOperation.create({
+      position: 100,
+      insert: { char: 98 },
     });
-    var buffer = UserOperation.encode(message).finish();
-    backend.stdin.write(buffer);
-    backend.stdin.write("\n");
+    const payload = UserOperation.encode(message).finish();
+
+    const header = Buffer.alloc(4);
+    header.writeUInt32BE(payload.length, 0);
+
+    backend.stdin.write(header);
+    backend.stdin.write(payload);
   });
 
   const main_window = new BrowserWindow({
@@ -40,7 +64,7 @@ function createWindow(): void {
     frame: false,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
+      preload: join(__dirname, "../preload/index.js"),
       sandbox: false
     }
   });
