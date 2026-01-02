@@ -6,41 +6,125 @@
 
 // pub use doc::Doc;
 
-use prost::Message;
-use std::io::{self, Read, Write, stdin, stdout};
-pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/dte.rs"));
+// use prost::Message;
+// use std::io::{self, Read, Write};
+// pub mod proto {
+//     include!(concat!(env!("OUT_DIR"), "/dte.rs"));
+// }
+// use crate::proto::{UserInsert, UserOperation, user_operation};
+
+use bytes::Bytes;
+use futures::StreamExt;
+use std::error::Error;
+use tokio::io::{AsyncRead, stdin};
+use tokio::net::TcpListener;
+use tokio::sync::mpsc;
+use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
+use tokio_util::sync::CancellationToken;
+
+type ServiceResult = Result<(), Box<dyn Error>>;
+type PacketSender = mpsc::Sender<IngressPacket>;
+
+#[derive(Debug)]
+enum IngressPacket {
+    FromStdin(Bytes),
+    FromTcp(Bytes),
 }
-use crate::proto::{UserInsert, UserOperation, user_operation};
 
-fn main() -> io::Result<()> {
-    let usr_op = UserOperation {
-        position: 2,
-        operation_type: Some(user_operation::OperationType::Insert(UserInsert {
-            char: 97,
-        })),
-    };
-    let binary = usr_op.encode_to_vec();
-    let length = binary.len() as u32;
-    let mut stdout = io::stdout().lock();
-    stdout.write_all(&length.to_be_bytes()).expect("write len");
-    stdout.write_all(&binary).expect("write body");
-    stdout.flush().expect("flush");
+async fn stream_reader<R, F>(stream: R, tx: PacketSender, token: CancellationToken, mapper: F)
+where
+    R: AsyncRead + Unpin,
+    F: Fn(Bytes) -> IngressPacket,
+{
+    let mut framed = FramedRead::new(stream, LengthDelimitedCodec::new());
 
-    let mut stdin = io::stdin().lock();
     loop {
-        let mut len_buf = [0u8; 4];
-        if let Err(_) = stdin.read_exact(&mut len_buf) {
-            break;
+        tokio::select! {
+            _ = token.cancelled() => return,
+            maybe_frame = framed.next() => {
+                match maybe_frame {
+                    Some(Ok(bytes)) => {
+                        let packet = mapper(bytes.freeze());
+                        if tx.send(packet).await.is_err() {
+                            return;
+                        }
+                    }
+                    Some(Err(e)) => {
+                        eprintln!("Framing error: {}", e);
+                    }
+                    None => return,
+                }
+            }
         }
-        let len = u32::from_be_bytes(len_buf) as usize;
-
-        let mut payload_buf = vec![0u8; len];
-        stdin.read_exact(&mut payload_buf)?;
-
-        let op = UserOperation::decode(&payload_buf[..])?;
-        println!("Received op at pos: {}", op.position);
     }
+}
+
+async fn run_tcp_server(tx: PacketSender, token: CancellationToken) -> ServiceResult {
+    let listener = TcpListener::bind("127.0.0.1:8080").await?;
+
+    loop {
+        tokio::select! {
+            _ = token.cancelled() => return Ok(()),
+            accept_result = listener.accept() => {
+                match accept_result {
+                    Ok((socket, addr)) => {
+                        eprintln!("New TCP connection: {}", addr);
+                        let tx_inner = tx.clone();
+                        let token_inner = token.clone();
+                        tokio::spawn(async move {
+                            stream_reader(
+                                socket,
+                                tx_inner,
+                                token_inner,
+                                IngressPacket::FromTcp
+                            ).await;
+                        });
+                    }
+                    Err(e) => eprintln!("TCP accept error: {}", e),
+                }
+            }
+        }
+    }
+}
+
+async fn process_packets(mut rx: mpsc::Receiver<IngressPacket>, token: CancellationToken) {
+    let mut cnt = 0;
+    while let Some(packet) = rx.recv().await {
+        match packet {
+            IngressPacket::FromStdin(bytes) => {
+                eprintln!("{} IPC payload size: {}", cnt, bytes.len());
+                cnt += 1;
+                // If message == ShutdownCommand -> token.cancel(); break;
+            }
+            IngressPacket::FromTcp(bytes) => {
+                eprintln!("Network payload size: {}", bytes.len());
+            }
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> ServiceResult {
+    let (tx, rx) = mpsc::channel(32);
+    let token = CancellationToken::new();
+
+    let tx_stdin = tx.clone();
+    let token_stdin = token.clone();
+    tokio::spawn(async move {
+        stream_reader(stdin(), tx_stdin, token_stdin, IngressPacket::FromStdin).await;
+    });
+
+    let tx_tcp = tx.clone();
+    let token_tcp = token.clone();
+    tokio::spawn(async move {
+        if let Err(e) = run_tcp_server(tx_tcp, token_tcp).await {
+            eprintln!("TCP Server crashed: {}", e);
+        }
+    });
+
+    drop(tx);
+
+    process_packets(rx, token.clone()).await;
 
     Ok(())
 }

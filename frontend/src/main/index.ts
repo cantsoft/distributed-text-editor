@@ -1,18 +1,16 @@
 import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
-import { join } from 'path';
-const { spawn } = require('node:child_process');
-const path = require('path');
 
-const protobuf = require("protobufjs");
+import { spawn } from "child_process";
+import * as path from "path";
+import * as protobuf from "protobufjs";
 
-
-async function readFromBackend(): Promise<void> {
+async function runBackendService() {
   const root = await protobuf.load("../proto/frame.proto");
   const UserOperation = root.lookupType("dte.UserOperation");
-
   const backend = spawn(path.resolve(__dirname, "../../native/backend"));
+  console.log("Backend spawned");
 
   let buffer = Buffer.alloc(0);
 
@@ -22,52 +20,56 @@ async function readFromBackend(): Promise<void> {
       if (buffer.length < 4) break;
       const msgLen = buffer.readUInt32BE(0);
       if (buffer.length < 4 + msgLen) break;
+
       const payload = buffer.subarray(4, 4 + msgLen);
+      buffer = buffer.subarray(4 + msgLen);
+
       try {
         const message = UserOperation.decode(payload);
-        console.log("[Rust]:", message);
+        console.log("[Node received form Rust]:", message);
       } catch (e) {
         console.error("Decode error:", e);
       }
-      buffer = buffer.subarray(4 + msgLen);
     }
   });
+
   backend.stderr.on("data", (data) => {
-    console.error(`Rust Error: ${data}`);
+    console.error(`[Rust Log]: ${data.toString()}`);
+  });
+
+  backend.on("close", (code) => {
+    console.log(`Backend process exited with code ${code}`);
+    process.exit(code ?? 0);
+  });
+
+  process.stdin.resume();
+  process.stdin.on("data", (data) => {
+    for (const byte of data) {
+      if (byte === 10 || byte === 13) continue;
+
+      try {
+        const message = UserOperation.create({
+          position: 0,
+          insert: { char: byte },
+        });
+
+        const payload = UserOperation.encode(message).finish();
+
+        const header = Buffer.alloc(4);
+        header.writeUInt32BE(payload.length, 0);
+
+        backend.stdin.write(header);
+        backend.stdin.write(payload);
+        console.log(`[Node sent]: char code ${byte}`);
+      } catch (e) {
+        console.error("Encode/Send error:", e);
+      }
+    }
   });
 }
 
 function createWindow(): void {
-  readFromBackend();
-  const backend = spawn(path.resolve(__dirname, "../../native/backend"));
-  protobuf.load("../proto/frame.proto").then(function (root) {
-    const UserOperation = root.lookupType("dte.UserOperation");
-    const message = UserOperation.create({
-      position: 100,
-      insert: { char: 98 },
-    });
-    const payload = UserOperation.encode(message).finish();
-
-    const header = Buffer.alloc(4);
-    header.writeUInt32BE(payload.length, 0);
-
-    backend.stdin.write(header);
-    backend.stdin.write(payload);
-  });
-
-  const main_window = new BrowserWindow({
-    width: 800,
-    minWidth: 400,
-    height: 600,
-    minHeight: 300,
-    show: false,
-    frame: false,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
-      sandbox: false
-    }
-  });
+  runBackendService().catch((err) => console.error(err));
 
   ipcMain.on('window:close', () => { main_window.close(); });
   ipcMain.on('window:minimize', () => { main_window.minimize(); });
