@@ -1,9 +1,10 @@
+#!/usr/bin/env python3
 import os
 import sys
 import shutil
 import pathlib
 
-CWD: str = pathlib.Path(__file__).parent.resolve()
+CWD: str = str(pathlib.Path(__file__).parent.resolve())
 FRONTEND_DIR: str = os.path.abspath(os.path.join(CWD, "..", "frontend"))
 BACKEND_DIR: str = os.path.abspath(os.path.join(CWD, "..", "backend"))
 BINNAME = "backend.exe" if os.name == "nt" else "backend"

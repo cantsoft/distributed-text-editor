@@ -9,12 +9,15 @@ path = "src/main.rs"
 
 [dependencies]
 tokio = { version = "1.47.1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec", "rt"] }
+prost = "0.14"
+bytes = "1.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 rand = "0.9.2"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-prost = "0.14"
+futures = "0.3.31"
 
 [build-dependencies]
 prost-build = "0.13"
