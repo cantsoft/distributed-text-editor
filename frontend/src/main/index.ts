@@ -49,13 +49,15 @@ async function runBackendService() {
 async function onUserInput(data, position, type) {
   let message: protobuf.Message<{}> | null = null;
   try {
-    switch(type) {
-      case "insertLineBreak": 
+    switch (type) {
+      case "insertLineBreak":
         data = "\n";
+      // eslint-disable-next-line no-fallthrough
       case "insertText":
+        console.log(data);
         message = UserOperation!.create({
           position: position,
-          insert: { char: data },
+          insert: { char: data.codePointAt(0) },
         });
       break;
       case "deleteContentBackward":
@@ -64,11 +66,10 @@ async function onUserInput(data, position, type) {
           remove: {},
         });
       break;
-      default: 
-        console.log("Unhandled user input event"); 
+      default:
+        console.log("Unhandled user input event");
         return;
     }
-    
     const payload = UserOperation?.encode(message!).finish();
     const header = Buffer.alloc(4);
     header.writeUInt32BE(payload!.length, 0);
@@ -99,7 +100,9 @@ function createWindow(): void {
     if (main_window.isMaximized()) { main_window.unmaximize(); }
     else { main_window.maximize(); }
   });
-  ipcMain.on('user:input', (...args) => { onUserInput(args[1], args[2], args[3]); });
+  ipcMain.on('user:input', (...args) => { 
+    onUserInput(args[1], args[2], args[3]); 
+  });
 
   main_window.on('ready-to-show', () => { main_window.show() });
 
