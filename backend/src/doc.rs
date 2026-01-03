@@ -39,19 +39,19 @@ impl Doc {
         }
     }
 
-    pub fn remove_absolute_wrapper(&mut self, absolute_position: u32) {
-        self.remove_absolute(absolute_position as usize)
-            .expect("remove failed");
-    }
-    pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
-        let mut side = Side::new(123);
-        self.insert_absolute(
-            absolute_position as usize,
-            data.chars().next().expect("empty char"),
-            &mut side,
-        )
-        .expect("insert failed");
-    }
+    // pub fn remove_absolute_wrapper(&mut self, absolute_position: u32) {
+    //     self.remove_absolute(absolute_position as usize)
+    //         .expect("remove failed");
+    // }
+    // pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
+    //     let mut side = Side::new(123);
+    //     self.insert_absolute(
+    //         absolute_position as usize,
+    //         data.chars().next().expect("empty char"),
+    //         &mut side,
+    //     )
+    //     .expect("insert failed");
+    // }
 
     pub(crate) fn bos_id(&self) -> Arc<[NodeKey]> {
         self.id_list
@@ -71,17 +71,17 @@ impl Doc {
 
     pub(crate) fn insert_absolute(
         &mut self,
-        absolute_position: usize,
+        this_side: &mut Side,
+        absolute_position: u32,
         data: char,
-        side: &mut Side,
     ) -> Result<(), &'static str> {
         let mut keys = self.id_list.keys();
         let before_key = keys
-            .nth(absolute_position)
+            .nth(absolute_position.saturating_sub(1) as usize) //??
             .cloned()
-            .ok_or("wrong position")?;
-        let after_key = keys.next().cloned().ok_or("wrong position")?;
-        let id = self.generate_id(&before_key, &after_key, side);
+            .ok_or("wrong before position")?;
+        let after_key = keys.next().cloned().ok_or("wrong after position")?;
+        let id = self.generate_id(&before_key, &after_key, this_side);
         self.id_list.insert(id, Some(data));
         Ok(())
     }
