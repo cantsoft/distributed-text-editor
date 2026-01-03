@@ -6,6 +6,7 @@ const api = {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),
   close: () => ipcRenderer.send("window:close"),
+  onUserInput: (...data) => ipcRenderer.send("user:input", ...data),
 };
 
 // Use `contextBridge` APIs to expose Electron APIs to

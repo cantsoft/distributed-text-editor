@@ -2,17 +2,20 @@ import { app, shell, BrowserWindow, ipcMain } from 'electron';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 
-import { spawn } from "child_process";
+import { ChildProcessWithoutNullStreams, spawn } from "child_process";
 import * as path from "path";
 import * as protobuf from "protobufjs";
 
-async function runBackendService() {
-  const root = await protobuf.load("../proto/frame.proto");
-  const UserOperation = root.lookupType("dte.UserOperation");
-  const backend = spawn(path.resolve(__dirname, "../../native/backend"));
-  console.log("Backend spawned");
+let root: protobuf.Root | null = null;
+let UserOperation: protobuf.Type | null = null;
+let backend: ChildProcessWithoutNullStreams | null = null;
 
+async function runBackendService() {
   let buffer = Buffer.alloc(0);
+
+  root = await protobuf.load("../proto/frame.proto");
+  UserOperation = root.lookupType("dte.UserOperation");
+  backend = spawn(path.resolve(__dirname, "../../native/backend"));
 
   backend.stdout.on("data", (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
@@ -25,7 +28,7 @@ async function runBackendService() {
       buffer = buffer.subarray(4 + msgLen);
 
       try {
-        const message = UserOperation.decode(payload);
+        const message = UserOperation!.decode(payload);
         console.log("[Node received form Rust]:", message);
       } catch (e) {
         console.error("Decode error:", e);
@@ -41,35 +44,54 @@ async function runBackendService() {
     console.log(`Backend process exited with code ${code}`);
     process.exit(code ?? 0);
   });
+}
 
-  process.stdin.resume();
-  process.stdin.on("data", (data) => {
-    for (const byte of data) {
-      if (byte === 10 || byte === 13) continue;
-
-      try {
-        const message = UserOperation.create({
-          position: 0,
-          insert: { char: byte },
+async function onUserInput(data, position, type) {
+  let message: protobuf.Message<{}> | null = null;
+  try {
+    switch(type) {
+      case "insertLineBreak": 
+        data = "\n";
+      case "insertText":
+        message = UserOperation!.create({
+          position: position,
+          insert: { char: data },
         });
-
-        const payload = UserOperation.encode(message).finish();
-
-        const header = Buffer.alloc(4);
-        header.writeUInt32BE(payload.length, 0);
-
-        backend.stdin.write(header);
-        backend.stdin.write(payload);
-        console.log(`[Node sent]: char code ${byte}`);
-      } catch (e) {
-        console.error("Encode/Send error:", e);
-      }
+      break;
+      case "deleteContentBackward":
+        message = UserOperation!.create({
+          position: position,
+          remove: {},
+        });
+      break;
+      default: 
+        console.log("Unhandled user input event"); 
+        return;
     }
-  });
+    
+    const payload = UserOperation?.encode(message!).finish();
+    const header = Buffer.alloc(4);
+    header.writeUInt32BE(payload!.length, 0);
+
+    backend!.stdin.write(header);
+    backend!.stdin.write(payload);
+  } catch (e) { console.error("Encode/Send error:", e); }
 }
 
 function createWindow(): void {
-  runBackendService().catch((err) => console.error(err));
+  const main_window = new BrowserWindow({
+    width: 800,
+    minWidth: 400,
+    height: 600,
+    minHeight: 300,
+    show: false,
+    frame: false,
+    ...(process.platform === 'linux' ? { icon } : {}),
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/index.js'),
+      sandbox: false
+    }
+  });
 
   ipcMain.on('window:close', () => { main_window.close(); });
   ipcMain.on('window:minimize', () => { main_window.minimize(); });
@@ -77,6 +99,7 @@ function createWindow(): void {
     if (main_window.isMaximized()) { main_window.unmaximize(); }
     else { main_window.maximize(); }
   });
+  ipcMain.on('user:input', (...args) => { onUserInput(args[1], args[2], args[3]); });
 
   main_window.on('ready-to-show', () => { main_window.show() });
 
@@ -90,7 +113,7 @@ function createWindow(): void {
   });
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) { main_window.loadURL(process.env['ELECTRON_RENDERER_URL']); } 
-  else { main_window.loadFile(join(__dirname, '../renderer/index.html')); }
+  else { main_window.loadFile(path.join(__dirname, '../renderer/index.html')); }
 }
 
 app.whenReady().then(() => {
@@ -103,6 +126,7 @@ app.whenReady().then(() => {
   // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => { optimizer.watchWindowShortcuts(window); });
 
+  runBackendService().catch((err) => console.error(err)); 
   createWindow();
 
   // On macOS it's common to re-create a window in the app when the
