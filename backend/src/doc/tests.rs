@@ -1,10 +1,10 @@
-use crate::doc::Doc;
-use crate::side::Side;
-use crate::types::{DigitType, NodeKey};
+use super::{
+    doc::Doc,
+    side::Side,
+    types::{DigitType, NodeKey},
+};
 use serde::Deserialize;
-use std::fs;
-use std::iter::zip;
-use std::sync::Arc;
+use std::{iter, sync::Arc};
 
 fn from_digits(digits: &[DigitType]) -> Arc<[NodeKey]> {
     digits
@@ -47,7 +47,7 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
     }
     let doc_str = doc.collect_string();
     assert_eq!(test_str, doc_str);
-    for (id, ch) in zip(ids, test_str.chars()) {
+    for (id, ch) in iter::zip(ids, test_str.chars()) {
         println!("removing: {}", ch);
         doc.remove_id(&id)?;
     }
@@ -60,9 +60,9 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
 pub fn insert_absolute_test() -> Result<(), &'static str> {
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
-    doc.insert_absolute(&mut this_side, 0, 'a')?;
-    doc.insert_absolute(&mut this_side, 1, 'c')?;
-    doc.insert_absolute(&mut this_side, 1, 'b')?;
+    doc.insert_absolute(&mut this_side, 1, 'a')?;
+    doc.insert_absolute(&mut this_side, 2, 'c')?;
+    doc.insert_absolute(&mut this_side, 2, 'b')?;
     let doc_str = doc.collect_string();
     assert_eq!("abc", doc_str);
     Ok(())
@@ -96,11 +96,11 @@ pub fn remove_absolute_test() -> Result<(), &'static str> {
 pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
-    doc.insert_absolute(&mut this_side, 0, 'a')?;
-    doc.insert_absolute(&mut this_side, 1, 'b')?;
-    doc.insert_absolute(&mut this_side, 2, 'c')?;
-    doc.insert_absolute(&mut this_side, 3, 'd')?;
-    doc.insert_absolute(&mut this_side, 4, 'e')?;
+    doc.insert_absolute(&mut this_side, 1, 'a')?;
+    doc.insert_absolute(&mut this_side, 2, 'b')?;
+    doc.insert_absolute(&mut this_side, 3, 'c')?;
+    doc.insert_absolute(&mut this_side, 4, 'd')?;
+    doc.insert_absolute(&mut this_side, 5, 'e')?;
     doc.remove_absolute(0)?; // bcde
     doc.remove_absolute(3)?; // bcd
     doc.remove_absolute(0)?; // cd
@@ -144,7 +144,7 @@ struct DataWrapper {
 
 #[test]
 pub fn relative_insert_remove_test() {
-    let data = fs::read_to_string("../data/relative_insert_remove.json")
+    let data = std::fs::read_to_string("../data/relative_insert_remove.json")
         .expect("Failed to read data file");
     let data_wrapper: DataWrapper = serde_json::from_str(&data).expect("Failed to parse JSON");
     println!(
