@@ -1,9 +1,7 @@
 use crate::{
     doc::{Doc, Side},
-    proto::{UserInsert, UserOperation, user_operation::OperationType},
+    proto::{LocalInsert, LocalOperation, local_operation::OperationType},
 };
-use bytes::Bytes;
-use prost::Message;
 
 pub struct EditorSession {
     doc: Doc,
@@ -18,15 +16,7 @@ impl EditorSession {
         }
     }
 
-    pub fn handle_ipc_packet(&mut self, frame_bytes: Bytes) {
-        let op = match UserOperation::decode(frame_bytes) {
-            Ok(op) => op,
-            Err(e) => {
-                eprintln!("Protobuf decode error: {}", e);
-                return;
-            }
-        };
-
+    pub fn handle_local_operation(&mut self, op: LocalOperation) {
         match op.operation_type {
             Some(OperationType::Insert(insert)) => self.apply_insert(op.position, insert),
             Some(OperationType::Remove(_)) => self.apply_remove(op.position),
@@ -36,7 +26,7 @@ impl EditorSession {
         eprintln!("Doc: {:?}", self.doc.collect_string());
     }
 
-    fn apply_insert(&mut self, pos: u32, insert: UserInsert) {
+    fn apply_insert(&mut self, pos: u32, insert: LocalInsert) {
         let char_code = insert.char;
         let Some(character) = char::from_u32(char_code) else {
             eprintln!("Err: Invalid char code received: {}", char_code);
@@ -44,7 +34,10 @@ impl EditorSession {
         };
         eprintln!("Insert: {} ('{}')", char_code, character);
 
-        if let Err(e) = self.doc.insert_absolute(&mut self.identity, pos, character) {
+        if let Err(e) = self
+            .doc
+            .insert_absolute(&mut self.identity, pos as usize, character)
+        {
             eprintln!("Insert logic error: {}", e);
         }
     }

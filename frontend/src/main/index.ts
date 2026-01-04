@@ -7,14 +7,14 @@ import * as path from "path";
 import * as protobuf from "protobufjs";
 
 let root: protobuf.Root | null = null;
-let UserOperation: protobuf.Type | null = null;
+let LocalOperation: protobuf.Type | null = null;
 let backend: ChildProcessWithoutNullStreams | null = null;
 
 async function runBackendService() {
   let buffer = Buffer.alloc(0);
 
-  root = await protobuf.load("../proto/frame.proto");
-  UserOperation = root.lookupType("dte.UserOperation");
+  root = await protobuf.load("../proto/frames.proto");
+  LocalOperation = root.lookupType("dte.LocalOperation");
   backend = spawn(path.resolve(__dirname, "../../native/backend"));
 
   backend.stdout.on("data", (chunk) => {
@@ -28,7 +28,7 @@ async function runBackendService() {
       buffer = buffer.subarray(4 + msgLen);
 
       try {
-        const message = UserOperation!.decode(payload);
+        const message = LocalOperation!.decode(payload);
         console.log("[Node received form Rust]:", message);
       } catch (e) {
         console.error("Decode error:", e);
@@ -46,31 +46,47 @@ async function runBackendService() {
   });
 }
 
-async function onUserInput(data, position, type) {
+function isAlphaNumeric(str): boolean {
+  const code = str.charCodeAt(0);
+  return (code > 47 && code < 58) || // numeric (0-9)
+        (code > 64 && code < 91) || // upper alpha (A-Z)
+        (code > 96 && code < 123); // lower alpha (a-z)
+};
+
+async function onKeyDown(key_data, cursor_pos): Promise<void> {
   let message: protobuf.Message<{}> | null = null;
   try {
-    switch (type) {
-      case "insertLineBreak":
-        data = "\n";
-      // eslint-disable-next-line no-fallthrough
-      case "insertText":
-        console.log(data);
-        message = UserOperation!.create({
-          position: position,
-          insert: { char: data.codePointAt(0) },
-        });
-      break;
-      case "deleteContentBackward":
-        message = UserOperation!.create({
-          position: position,
+    let data = key_data;
+    switch (key_data) {
+      case "Backspace":
+        message = LocalOperation!.create({
+          position: cursor_pos,
           remove: {},
         });
       break;
+      case "Enter":
+        data = "\n";
+        console.log(data);
+        message = LocalOperation!.create({
+          position: cursor_pos,
+          insert: { char: data.codePointAt(0) },
+        });
+      break;
       default:
+
+        if(isAlphaNumeric(key_data) && key_data.length == 1){
+          console.log(data);
+          message = LocalOperation!.create({
+            position: cursor_pos,
+            insert: { char: data.codePointAt(0) },
+          });
+          break;
+        }
+
         console.log("Unhandled user input event");
         return;
     }
-    const payload = UserOperation?.encode(message!).finish();
+    const payload = LocalOperation?.encode(message!).finish();
     const header = Buffer.alloc(4);
     header.writeUInt32BE(payload!.length, 0);
 
@@ -100,10 +116,11 @@ function createWindow(): void {
     if (main_window.isMaximized()) { main_window.unmaximize(); }
     else { main_window.maximize(); }
   });
-  ipcMain.on('user:input', (...args) => { 
-    onUserInput(args[1], args[2], args[3]); 
+  ipcMain.on("user:keydown", (event: IpcMainEvent, key_data: string, cursor_pos: number) => {
+    console.log(key_data, cursor_pos);
+    onKeyDown(key_data, cursor_pos);
   });
-
+  
   main_window.on('ready-to-show', () => { main_window.show() });
 
   if (is.dev) {

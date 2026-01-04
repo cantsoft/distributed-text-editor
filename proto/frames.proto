@@ -1,0 +1,16 @@
+syntax = "proto3";
+package dte;
+
+message LocalRemove {};
+
+message LocalInsert {
+  uint32 char = 1;
+};
+
+message LocalOperation {
+  uint32 position = 1;
+  oneof operation_type {
+    LocalRemove remove = 10;
+    LocalInsert insert = 11;
+  };
+};
