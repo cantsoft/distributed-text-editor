@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron';
+import { app, shell, BrowserWindow, ipcMain, ProtocolResponse } from 'electron';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 
@@ -9,6 +9,19 @@ import * as protobuf from "protobufjs";
 let root: protobuf.Root | null = null;
 let LocalOperation: protobuf.Type | null = null;
 let backend: ChildProcessWithoutNullStreams | null = null;
+
+let main_window: BrowserWindow | null = null;
+
+function handleMessage(message: protobuf.Message<{}>) {
+  if (message.remove) {
+    main_window!.webContents.send("remove-request", message.position);
+  } else if (message.insert) {
+    const char = String.fromCharCode(message.insert.char);
+    main_window!.webContents.send("insert-request", message.position, char);
+  } else {
+    console.log("Unknown message type");
+  }
+}
 
 async function runBackendService() {
   let buffer = Buffer.alloc(0);
@@ -29,7 +42,7 @@ async function runBackendService() {
 
       try {
         const message = LocalOperation!.decode(payload);
-        console.log("[Node received form Rust]:", message);
+        handleMessage(message);
       } catch (e) {
         console.error("Decode error:", e);
       }
@@ -96,7 +109,7 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
 }
 
 function createWindow(): void {
-  const main_window = new BrowserWindow({
+  main_window = new BrowserWindow({
     width: 800,
     minWidth: 400,
     height: 600,
@@ -116,7 +129,7 @@ function createWindow(): void {
     if (main_window.isMaximized()) { main_window.unmaximize(); }
     else { main_window.maximize(); }
   });
-  ipcMain.on("user:keydown", (event: IpcMainEvent, key_data: string, cursor_pos: number) => {
+  ipcMain.on("user:keydown", (_event: any, key_data: string, cursor_pos: number) => {
     console.log(key_data, cursor_pos);
     onKeyDown(key_data, cursor_pos);
   });

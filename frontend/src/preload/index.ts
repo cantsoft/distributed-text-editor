@@ -7,7 +7,14 @@ const api = {
   maximize: () => ipcRenderer.send("window:maximize"),
   close: () => ipcRenderer.send("window:close"),
   onUserKeydown: (keyData, cursorPos) => ipcRenderer.send("user:keydown", keyData, cursorPos),
+  onRemoveRequest: (callback: (position: number) => void) => { 
+    ipcRenderer.on("remove-request", (_e: any, position: number) => callback(position))
+  },
+  onInsertRequest: (callback: (position: number, char: string) => void) => { 
+    ipcRenderer.on("insert-request", (_e, position: number, char: string) => callback(position, char))
+  },
 };
+
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
