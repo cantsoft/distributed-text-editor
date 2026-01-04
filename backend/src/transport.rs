@@ -1,27 +1,22 @@
+use crate::protocol;
 use bytes::Bytes;
 use futures::StreamExt;
-use std::error::Error;
 use tokio::io::AsyncRead;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
 use tokio_util::sync::CancellationToken;
 
-use crate::protocol;
+type PacketSender = mpsc::Sender<protocol::IngressPacket>;
 
-pub type ServiceResult = Result<(), Box<dyn Error>>;
-type PacketSender = mpsc::Sender<IngressPacket>;
-
-#[derive(Debug)]
-pub enum IngressPacket {
-    FromStdin(Bytes),
-    FromTcp(Bytes),
-}
-
-async fn stream_reader<R, F>(stream: R, tx: PacketSender, token: CancellationToken, mapper: F)
-where
+async fn stream_reader<R, F>(
+    stream: R,
+    tx: PacketSender,
+    token: CancellationToken,
+    packet_constructor: F,
+) where
     R: AsyncRead + Unpin,
-    F: Fn(Bytes) -> IngressPacket,
+    F: Fn(Bytes) -> protocol::IngressPacket,
 {
     let mut framed = FramedRead::new(stream, LengthDelimitedCodec::new());
 
@@ -31,7 +26,7 @@ where
             maybe_frame = framed.next() => {
                 match maybe_frame {
                     Some(Ok(bytes)) => {
-                        let packet = mapper(bytes.freeze());
+                        let packet = packet_constructor(bytes.freeze());
                         if tx.send(packet).await.is_err() {
                             return;
                         }
@@ -46,7 +41,10 @@ where
     }
 }
 
-async fn run_tcp_server(tx: PacketSender, token: CancellationToken) -> ServiceResult {
+async fn run_tcp_server(
+    tx: PacketSender,
+    token: CancellationToken,
+) -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:1234").await?;
     loop {
         tokio::select! {
@@ -62,7 +60,7 @@ async fn run_tcp_server(tx: PacketSender, token: CancellationToken) -> ServiceRe
                                 socket,
                                 tx_inner,
                                 token_inner,
-                                IngressPacket::FromTcp
+                                protocol::IngressPacket::FromTcp
                             ).await;
                         });
                     }
@@ -73,7 +71,7 @@ async fn run_tcp_server(tx: PacketSender, token: CancellationToken) -> ServiceRe
     }
 }
 
-pub async fn run_service() -> ServiceResult {
+pub async fn run_service() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel(32);
     let token = CancellationToken::new();
 
@@ -84,7 +82,7 @@ pub async fn run_service() -> ServiceResult {
             tokio::io::stdin(),
             tx_stdin,
             token_stdin,
-            IngressPacket::FromStdin,
+            protocol::IngressPacket::FromStdin,
         )
         .await;
     });

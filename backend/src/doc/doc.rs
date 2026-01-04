@@ -1,5 +1,5 @@
-use crate::side::Side;
-use crate::types::{
+use super::side::Side;
+use super::types::{
     DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, NodeKey, RESERVED_PEER,
 };
 use core::panic;
@@ -53,7 +53,7 @@ impl Doc {
     //     .expect("insert failed");
     // }
 
-    pub(crate) fn bos_id(&self) -> Arc<[NodeKey]> {
+    pub(super) fn bos_id(&self) -> Arc<[NodeKey]> {
         self.id_list
             .first_key_value()
             .expect("Error: BOS node missing")
@@ -61,7 +61,7 @@ impl Doc {
             .clone()
     }
 
-    pub(crate) fn eos_id(&self) -> Arc<[NodeKey]> {
+    pub(super) fn eos_id(&self) -> Arc<[NodeKey]> {
         self.id_list
             .last_key_value()
             .expect("Error: EOS node missing")
@@ -69,7 +69,7 @@ impl Doc {
             .clone()
     }
 
-    pub(crate) fn insert_absolute(
+    pub fn insert_absolute(
         &mut self,
         this_side: &mut Side,
         absolute_position: u32,
@@ -77,7 +77,7 @@ impl Doc {
     ) -> Result<(), &'static str> {
         let mut keys = self.id_list.keys();
         let before_key = keys
-            .nth(absolute_position.saturating_sub(1) as usize) //??
+            .nth(absolute_position.saturating_sub(1) as usize) // becouse of bos
             .cloned()
             .ok_or("wrong before position")?;
         let after_key = keys.next().cloned().ok_or("wrong after position")?;
@@ -86,7 +86,7 @@ impl Doc {
         Ok(())
     }
 
-    pub(crate) fn remove_absolute(&mut self, absolute_position: usize) -> Result<(), &'static str> {
+    pub fn remove_absolute(&mut self, absolute_position: usize) -> Result<(), &'static str> {
         let id = self
             .id_list
             .keys()
@@ -97,12 +97,12 @@ impl Doc {
         Ok(())
     }
 
-    pub(crate) fn insert_id(&mut self, id: Arc<[NodeKey]>, data: char) -> Result<(), &'static str> {
+    pub fn insert_id(&mut self, id: Arc<[NodeKey]>, data: char) -> Result<(), &'static str> {
         self.id_list.insert(id, Some(data));
         Ok(())
     }
 
-    pub(crate) fn remove_id(&mut self, id: &[NodeKey]) -> Result<(), &'static str> {
+    pub fn remove_id(&mut self, id: &[NodeKey]) -> Result<(), &'static str> {
         self.id_list.remove(id);
         Ok(())
     }
@@ -111,7 +111,7 @@ impl Doc {
         self.id_list.values().filter_map(|ch| *ch).collect()
     }
 
-    pub(crate) fn generate_id(
+    pub(super) fn generate_id(
         &mut self,
         p: &[NodeKey],
         q: &[NodeKey],
@@ -181,7 +181,7 @@ impl Doc {
                     }; // temporary safeguard
                     NodeKey {
                         digit: *digit,
-                        peer_id: side.peer_id,
+                        peer_id: side.peer_id(),
                         time: time,
                     }
                 }
