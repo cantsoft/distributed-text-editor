@@ -39,20 +39,6 @@ impl Doc {
         }
     }
 
-    // pub fn remove_absolute_wrapper(&mut self, absolute_position: u32) {
-    //     self.remove_absolute(absolute_position as usize)
-    //         .expect("remove failed");
-    // }
-    // pub fn insert_absolute_wrapper(&mut self, absolute_position: u32, data: String) {
-    //     let mut side = Side::new(123);
-    //     self.insert_absolute(
-    //         absolute_position as usize,
-    //         data.chars().next().expect("empty char"),
-    //         &mut side,
-    //     )
-    //     .expect("insert failed");
-    // }
-
     pub(super) fn bos_id(&self) -> Arc<[NodeKey]> {
         self.id_list
             .first_key_value()
@@ -72,27 +58,31 @@ impl Doc {
     pub fn insert_absolute(
         &mut self,
         this_side: &mut Side,
-        absolute_position: u32,
+        absolute_position: usize,
         data: char,
     ) -> Result<(), &'static str> {
         let mut keys = self.id_list.keys();
         let before_key = keys
-            .nth(absolute_position.saturating_sub(1) as usize) // becouse of bos
+            .nth(absolute_position) // becouse of bos
             .cloned()
-            .ok_or("wrong before position")?;
-        let after_key = keys.next().cloned().ok_or("wrong after position")?;
+            .ok_or("missing key before position")?;
+        let after_key = keys.next().cloned().ok_or("missing key after position")?;
         let id = self.generate_id(&before_key, &after_key, this_side);
         self.id_list.insert(id, Some(data));
         Ok(())
     }
 
     pub fn remove_absolute(&mut self, absolute_position: usize) -> Result<(), &'static str> {
+        if absolute_position == 0 {
+            // ignoring try of removing bos TODO: better way of doing this
+            return Ok(());
+        }
         let id = self
             .id_list
             .keys()
-            .nth(1 + absolute_position)
+            .nth(absolute_position)
             .cloned()
-            .ok_or("wrong position")?;
+            .ok_or("missing position")?;
         self.id_list.remove(&id);
         Ok(())
     }
@@ -108,6 +98,8 @@ impl Doc {
     }
 
     pub fn collect_string(&self) -> String {
+        // eprintln!("eos {:?}", self.id_list.first_key_value());
+        // eprintln!("bos {:?}", self.id_list.last_key_value());
         self.id_list.values().filter_map(|ch| *ch).collect()
     }
 

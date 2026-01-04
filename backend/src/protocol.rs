@@ -1,5 +1,6 @@
-use crate::session;
+use crate::{proto::LocalOperation, session};
 use bytes::Bytes;
+use prost::Message;
 
 #[derive(Debug)]
 pub enum IngressPacket {
@@ -21,7 +22,14 @@ pub async fn process_packets(
         match packet {
             IngressPacket::FromStdin(bytes) => {
                 eprintln!("IPC payload size: {}", bytes.len());
-                session.handle_ipc_packet(bytes);
+                let op = match LocalOperation::decode(bytes) {
+                    Ok(op) => op,
+                    Err(e) => {
+                        eprintln!("Protobuf decode error: {}", e);
+                        return;
+                    }
+                };
+                session.handle_local_operation(op);
                 // If message == ShutdownCommand -> token.cancel();
             }
             IngressPacket::FromTcp(bytes) => {

@@ -60,9 +60,9 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
 pub fn insert_absolute_test() -> Result<(), &'static str> {
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
-    doc.insert_absolute(&mut this_side, 1, 'a')?;
-    doc.insert_absolute(&mut this_side, 2, 'c')?;
-    doc.insert_absolute(&mut this_side, 2, 'b')?;
+    doc.insert_absolute(&mut this_side, 0, 'a')?;
+    doc.insert_absolute(&mut this_side, 1, 'c')?;
+    doc.insert_absolute(&mut this_side, 1, 'b')?;
     let doc_str = doc.collect_string();
     assert_eq!("abc", doc_str);
     Ok(())
@@ -96,15 +96,15 @@ pub fn remove_absolute_test() -> Result<(), &'static str> {
 pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
-    doc.insert_absolute(&mut this_side, 1, 'a')?;
-    doc.insert_absolute(&mut this_side, 2, 'b')?;
-    doc.insert_absolute(&mut this_side, 3, 'c')?;
-    doc.insert_absolute(&mut this_side, 4, 'd')?;
-    doc.insert_absolute(&mut this_side, 5, 'e')?;
-    doc.remove_absolute(0)?; // bcde
-    doc.remove_absolute(3)?; // bcd
-    doc.remove_absolute(0)?; // cd
-    doc.remove_absolute(1)?; // c
+    doc.insert_absolute(&mut this_side, 0, 'a')?;
+    doc.insert_absolute(&mut this_side, 1, 'b')?;
+    doc.insert_absolute(&mut this_side, 2, 'c')?;
+    doc.insert_absolute(&mut this_side, 3, 'd')?;
+    doc.insert_absolute(&mut this_side, 4, 'e')?;
+    doc.remove_absolute(1)?; // bcde
+    doc.remove_absolute(4)?; // bcd
+    doc.remove_absolute(1)?; // cd
+    doc.remove_absolute(2)?; // c
     // doc.remove_absolute(0); // EOS could be removed
     let doc_str = doc.collect_string();
     assert_eq!("c", doc_str);
