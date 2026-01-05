@@ -6,7 +6,9 @@ pub(super) const MAX_POSITION_DIGIT: DigitType = u32::MAX;
 pub(super) const RESERVED_PEER: PeerIdType = 0;
 pub(super) const DEFAULT_BOUNDARY: DigitType = 16;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeKey {
     pub(super) digit: DigitType,
     pub(super) peer_id: PeerIdType,
