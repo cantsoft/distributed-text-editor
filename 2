@@ -1,10 +1,7 @@
 use crate::protocol;
 use bincode::Result;
 use bytes::Bytes;
-use futures::FutureExt;
-use futures::SinkExt;
 use futures::StreamExt;
-use serde_json::ser::Formatter;
 
 use std::net::{Ipv4Addr, SocketAddr};
 
@@ -12,8 +9,6 @@ use tokio::io::AsyncRead;
 use tokio::net::UdpSocket;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
-use tokio_util::udp::UdpFramed;
-use tokio_util::codec::{LinesCodec, Decoder};
 use tokio_util::codec::{FramedRead, LengthDelimitedCodec};
 use tokio_util::sync::CancellationToken;
 
@@ -54,7 +49,7 @@ async fn stream_reader<R, F>(
 async fn run_tcp_server(
     tx: PacketSender,
     token: CancellationToken,
-) -> std::result::Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind("127.0.0.1:1234").await?;
     loop {
         tokio::select! {
@@ -81,7 +76,7 @@ async fn run_tcp_server(
     }
 }
 
-pub async fn run_service() -> std::result::Result<(), Box<dyn std::error::Error>> {
+pub async fn run_service() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, rx) = mpsc::channel(32);
     let token = CancellationToken::new();
 
@@ -97,12 +92,11 @@ pub async fn run_service() -> std::result::Result<(), Box<dyn std::error::Error>
         .await;
     });
 
-    let tx_udp = tx.clone();
-    let token_udp = token.clone();
-
+    let tx_tcp = tx.clone();
+    let token_tcp = token.clone();
     tokio::spawn(async move {
-        if let Err(e) = run_multicast(9000, "127.0.0.1", tx_udp, token_udp).await {
-            eprintln!("UDP server crashed: {}", e);
+        if let Err(e) = run_tcp_server(tx_tcp, token_tcp).await {
+            eprintln!("TCP Server crashed: {}", e);
         }
     });
 
@@ -113,42 +107,37 @@ pub async fn run_service() -> std::result::Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-pub async fn run_multicast(
-    port: u16, 
-    ip_address: &str,
-    tx: PacketSender,
-    token: CancellationToken
-) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    // let interface_address = Ipv4Addr::new(0, 0, 0, 0);
-    // let multicast_address: Ipv4Addr = ip_address.parse().unwrap();
-    // let socket = UdpSocket::bind(format!("0.0.0.0:{}", port)).await?;
+const MULTICAST_ADDR: &str = "239.0.0.1";
+const PORT: u16 = 9000;
 
-    // socket.join_multicast_v4(multicast_address, interface_address);
-    // socket.set_multicast_loop_v4(true)?;
+pub async fn run_multicast(port: u16, ip_address: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let multicast_addr: Ipv4Addr = ip_address.parse().unwrap();
+    let interface_addr
 
-    // let mut buf = [0u8; 1024];
-    // let socket = UdpSocket::bind("127.0.0.1:0").await?;
-    // let mut framed = UdpFramed::new(socket, LinesCodec::new());
+    Ok(())
+}
 
+pub async fn run_multicast_discovery() -> std::io::Result<()> {
+    let multi_addr: Ipv4Addr = MULTICAST_ADDR.parse().unwrap();
+    let interface_addr = Ipv4Addr::new(0, 0, 0, 0);
 
+    let socket = UdpSocket::bind(format!("0.0.0.0:{}", PORT)).await?;
 
+    socket.join_multicast_v4(multi_addr, interface_addr)?;
 
-    // while let Some(result) = framed.next().await {
-        // let (line, addr) = result?;
-        // println!("Odebrano '{}' od {}", line, addr);
+    socket.set_multicast_loop_v4(true)?;
 
-        // framed.send(("Echo".to_string(), addr)).await?;
-    // }
+    println!("Listening for peers on {}:{}", MULTICAST_ADDR, PORT);
 
-    let socket = UdpSocket::bind("127.0.0.1:0").await?;
-    let mut framed = UdpFramed::new(socket, LinesCodec::new());
+    let mut buf = [0u8; 1024];
 
-    while let Some(result) = framed.next().await {
-        let (line, addr) = result?;
-        println!("Odebrano '{}' od {}", line, addr);
+    loop {
+        let target_addr: SocketAddr = format!("{}:{}", MULTICAST_ADDR, PORT).parse().unwrap();
+        socket.send_to(b"HELLO_PEER", target_addr).await?;
 
-        framed.send(("Echo".to_string(), addr)).await?;
+        let (len, addr) = socket.recv_from(&mut buf).await?;
+        println!("Odebrano od {}: {:?}", addr, &buf[..len]);
+
+        tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     }
-    
-    return Ok(())
 }
