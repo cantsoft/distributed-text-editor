@@ -16,7 +16,7 @@ const SEED: [u8; 32] = [0; 32];
 
 #[derive(Debug)]
 pub struct Doc {
-    id_list: BTreeMap<Arc<[NodeKey]>, Option<char>>,
+    id_list: BTreeMap<Arc<[NodeKey]>, Option<char>>, //TODO: Arc could be changed to Rc
     strategy: HashMap<usize, bool>,
     boundry: DigitType,
 }
@@ -63,7 +63,7 @@ impl Doc {
     ) -> Result<(), &'static str> {
         let mut keys = self.id_list.keys();
         let before_key = keys
-            .nth(absolute_position) // becouse of bos
+            .nth(absolute_position) // because of bos
             .cloned()
             .ok_or("missing key before position")?;
         let after_key = keys.next().cloned().ok_or("missing key after position")?;
@@ -75,7 +75,7 @@ impl Doc {
     pub fn remove_absolute(&mut self, absolute_position: usize) -> Result<(), &'static str> {
         if absolute_position == 0 {
             // ignoring try of removing bos TODO: better way of doing this
-            return Ok(());
+            return Err("can't remove at position 0");
         }
         let id = self
             .id_list

@@ -79,7 +79,6 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
       break;
       case "Enter":
         data = "\n";
-        console.log(data);
         message = LocalOperation!.create({
           position: cursor_pos,
           insert: { char: data.codePointAt(0) },
@@ -88,7 +87,6 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
       default:
 
         if(isAlphaNumeric(key_data) && key_data.length == 1){
-          console.log(data);
           message = LocalOperation!.create({
             position: cursor_pos,
             insert: { char: data.codePointAt(0) },
@@ -130,7 +128,7 @@ function createWindow(): void {
     else { main_window.maximize(); }
   });
   ipcMain.on("user:keydown", (_event: any, key_data: string, cursor_pos: number) => {
-    console.log(key_data, cursor_pos);
+    // console.log(key_data, cursor_pos);
     onKeyDown(key_data, cursor_pos);
   });
   
