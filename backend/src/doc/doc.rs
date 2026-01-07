@@ -187,7 +187,6 @@ impl Doc {
         id.into()
     }
 
-#[allow(dead_code)]
     pub fn save_text(&self, path: &str) -> std::io::Result<()> {
         let content = self.collect_string();
         let mut file = File::create(path)?;
@@ -197,20 +196,6 @@ impl Doc {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub fn load_text(path: &str) -> std::io::Result<Self> {
-        let mut file = File::open(path)?;
-        let mut content = String::new();
-        file.read_to_string(&mut content)?;
-        if content.starts_with('\u{FEFF}') {
-            content.remove(0);
-        }
-        let mut doc = Doc::new();
-        doc.insert_absolute_wrapper(0, content);
-        Ok(doc)
-    }
-
-    #[allow(dead_code)]
     pub fn save_binary(&self, path: &str) -> std::io::Result<()> {
         let file = File::create(path)?;
         bincode::serialize_into(file, self)
@@ -218,19 +203,10 @@ impl Doc {
         Ok(())
     }
 
-    #[allow(dead_code)]
     pub fn load_binary(path: &str) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let doc = bincode::deserialize_from(file)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         Ok(doc)
-    }
-
-    #[allow(dead_code)]
-    fn insert_absolute_wrapper(&mut self, start_pos: usize, content: String) {
-        let mut side = Side::new(0); // Temporary side for loading
-        for (i, ch) in content.chars().enumerate() {
-            let _ = self.insert_absolute(&mut side, start_pos + i, ch);
-        }
     }
 }
