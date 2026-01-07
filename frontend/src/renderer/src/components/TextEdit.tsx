@@ -7,9 +7,8 @@ export default function TextEdit(): React.JSX.Element {
   const edit_ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (canvas_ref.current === null || edit_ref.current === null) {
-      return;
-    }
+    if (canvas_ref.current === null 
+      || edit_ref.current === null) { return; }
 
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);
@@ -44,10 +43,11 @@ export default function TextEdit(): React.JSX.Element {
     });
     
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if (!event.key.startsWith("Arrow")){
-        event.preventDefault();
-      }
-      if (event.key.length === 1 || event.key === "Backspace" || event.key === "Enter") {
+      if (!event.key.startsWith("Arrow")) { event.preventDefault(); }
+      if (event.key.length === 1
+          || event.key === "Backspace"
+          || event.key === "Enter"
+      ) {
         const selection = document.getSelection();
         if (!selection || selection.rangeCount === 0) return;
         const cursor_pos = selection.getRangeAt(0).startOffset;

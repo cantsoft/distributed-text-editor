@@ -85,8 +85,10 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
         });
       break;
       default:
-
-        if(isAlphaNumeric(key_data) && key_data.length == 1){
+        if ((isAlphaNumeric(key_data)
+            || key_data.charCodeAt(0) === 32) // spacebar
+            && key_data.length == 1
+        ) {
           message = LocalOperation!.create({
             position: cursor_pos,
             insert: { char: data.codePointAt(0) },
