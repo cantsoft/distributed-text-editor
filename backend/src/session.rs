@@ -5,14 +5,14 @@ use crate::{
 
 pub struct EditorSession {
     doc: Doc,
-    identity: Side,
+    this_side: Side,
 }
 
 impl EditorSession {
     pub fn new(id: u8) -> Self {
         Self {
             doc: Doc::new(),
-            identity: Side::new(id),
+            this_side: Side::new(id),
         }
     }
 
@@ -32,11 +32,11 @@ impl EditorSession {
             eprintln!("Err: Invalid char code received: {}", char_code);
             return;
         };
-        eprintln!("Insert: {} ('{}')", char_code, character);
+        eprintln!("Insert: {} ({:?})", char_code, character);
 
         if let Err(e) = self
             .doc
-            .insert_absolute(&mut self.identity, pos as usize, character)
+            .insert_absolute(&mut self.this_side, pos as usize, character)
         {
             eprintln!("Insert logic error: {}", e);
         }
