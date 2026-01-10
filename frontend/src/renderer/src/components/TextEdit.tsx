@@ -7,8 +7,9 @@ export default function TextEdit(): React.JSX.Element {
   const edit_ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (canvas_ref.current === null 
-      || edit_ref.current === null) { return; }
+    if (canvas_ref.current === null || edit_ref.current === null) {
+      return;
+    }
 
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);

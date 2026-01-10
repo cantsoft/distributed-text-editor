@@ -1,3 +1,4 @@
+mod config;
 mod doc;
 mod protocol;
 mod session;
