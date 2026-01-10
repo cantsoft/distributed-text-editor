@@ -1,5 +1,5 @@
+pub type PeerIdType = u8;
 pub(super) type DigitType = u32;
-pub(super) type PeerIdType = u8;
 pub(super) type TimestampType = u64;
 pub(super) const MIN_POSITION_DIGIT: DigitType = 0;
 pub(super) const MAX_POSITION_DIGIT: DigitType = u32::MAX;

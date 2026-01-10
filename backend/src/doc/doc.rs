@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Write;
 use std::sync::Arc;
 
 // for reproducible results during testing

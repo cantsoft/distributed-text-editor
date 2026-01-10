@@ -28,7 +28,7 @@ async function runBackendService() {
 
   root = await protobuf.load("../proto/frames.proto");
   LocalOperation = root.lookupType("dte.LocalOperation");
-  backend = spawn(path.resolve(__dirname, "../../native/backend"));
+  backend = spawn(path.resolve(__dirname, "../../native/backend")); // args
 
   backend.stdout.on("data", (chunk) => {
     buffer = Buffer.concat([buffer, chunk]);
@@ -86,7 +86,7 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
       break;
       default:
         if ((isAlphaNumeric(key_data)
-            || key_data.charCodeAt(0) === 32) // spacebar
+            || key_data.charCodeAt(0) === 32) // space
             && key_data.length == 1
         ) {
           message = LocalOperation!.create({
