@@ -1,14 +1,12 @@
 mod config;
-mod doc;
 mod protocol;
+mod service;
 mod session;
+mod state;
 mod transport;
-
-pub mod proto {
-    include!(concat!(env!("OUT_DIR"), "/dte.rs"));
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    transport::run_service().await
+    let config = config::load_or_create("./native/config.toml").expect("failed to load config");
+    service::run(config).await
 }
