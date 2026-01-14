@@ -6,4 +6,4 @@ mod types;
 
 pub use doc::Doc;
 pub use side::Side;
-pub use types::PeerIdType;
+pub use types::{NodeKey, PeerIdType};

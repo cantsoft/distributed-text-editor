@@ -92,13 +92,14 @@ impl Doc {
     }
 
     pub fn insert_id(&mut self, id: Arc<[NodeKey]>, data: char) -> Result<(), &'static str> {
-        self.id_list.insert(id, Some(data));
-        Ok(())
+        (!self.id_list.contains_key(&id))
+            .then(|| self.id_list.insert(id, Some(data)))
+            .ok_or("ID alredy exists")
+            .map(drop)
     }
 
     pub fn remove_id(&mut self, id: &[NodeKey]) -> Result<(), &'static str> {
-        self.id_list.remove(id);
-        Ok(())
+        self.id_list.remove(id).ok_or("id not found").map(drop)
     }
 
     pub fn collect_string(&self) -> String {
