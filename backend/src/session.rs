@@ -1,4 +1,5 @@
 use crate::{protocol, state};
+use crate::state::PeerIdType;
 use state::{Doc, Side};
 
 pub struct Session {
@@ -26,6 +27,37 @@ impl Session {
         }
         eprintln!("Pos: {}", op.position);
         eprintln!("Doc: {:?}", self.doc.collect_string());
+    }
+
+    pub fn handle_network(
+        &mut self, 
+        _: PeerIdType, 
+        payload: protocol::PeerMessage
+    ) {
+        match payload {
+            protocol::PeerMessage::SyncOp(remote_op) => {
+                match remote_op {
+                    protocol::RemoteOp::RemoteInsert { key, value } => {
+                        if let Err(e) = self.doc.insert_id(key.into(), value) {
+                            eprintln!("Error while inserting character: {}", e);
+                        }
+
+                        if map.contains_key(&key) {
+                            let index = map.range(..&key).count();
+                        }
+
+                        // send insert to frontend
+                    },
+                    protocol::RemoteOp::RemoteDelete { key } => {
+                        if let Err(e) = self.doc.remove_id(&key) {
+                            eprintln!("Error while deleting character: {}", e);
+                        }
+
+                        // send delete to frontend
+                    },
+                }
+            },
+        }
     }
 
     fn apply_insert(&mut self, pos: u32, insert: protocol::LocalInsert) {
