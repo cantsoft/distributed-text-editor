@@ -3,6 +3,7 @@ use super::types::{
     DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, NodeKey, RESERVED_PEER,
 };
 use bincode;
+use tokio::task::Id;
 use core::panic;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
@@ -209,5 +210,9 @@ impl Doc {
         let doc = bincode::deserialize_from(file)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         Ok(doc)
+    }
+
+    pub fn get_position(&self, key: Arc<[NodeKey]>) -> usize{
+        self.id_list.range(..&key).count()
     }
 }
