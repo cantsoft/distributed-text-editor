@@ -1,7 +1,7 @@
 use crate::config;
 use crate::protocol::{self, NodeEvent, PeerMessage};
 use crate::state::PeerIdType;
-use crate::transport::codec::PeerMessageCodec;
+use crate::transport::codec::{PeerMessageCodec, encode_protobuf};
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use socket2::{Domain, Protocol, Socket, Type};
@@ -94,7 +94,7 @@ pub async fn connect_to_peer(
     }
 }
 
-pub async fn run_tcp_server(
+pub async fn run_tcp_listener(
     tx: PacketSender,
     token: CancellationToken,
     tcp_port: u16,
@@ -190,10 +190,8 @@ async fn handle_connection(
             frame = framed_read.next() => {
                 match frame {
                     Some(Ok(msg)) => {
-                        if let Err(e) = tx.send(NodeEvent::Network {
-                            from: peer_id,
-                            payload: msg,
-                        }).await {
+                        eprintln!("Recived peer message: {:?}", msg);
+                        if let Err(e) = tx.send(NodeEvent::Network(msg)).await {
                             eprintln!("Failed to forward message from peer {}: {}", peer_id, e);
                             break;
                         }
@@ -246,5 +244,18 @@ pub async fn stream_reader<R, F>(
                 }
             }
         }
+    }
+}
+
+pub async fn send_local_op(
+    op: &protocol::LocalOperation,
+    writer: &mut FramedWrite<tokio::io::Stdout, LengthDelimitedCodec>,
+) {
+    let Ok(bytes) = encode_protobuf(op) else {
+        eprintln!("Protobuf encoding failed");
+        return;
+    };
+    if let Err(e) = writer.send(bytes).await {
+        eprintln!("Failed to write to stdout: {}", e);
     }
 }

@@ -16,8 +16,8 @@ function handleMessage(message: protobuf.Message<{}>) {
   if (message.remove) {
     main_window!.webContents.send("remove-request", message.position);
   } else if (message.insert) {
-    const char = String.fromCharCode(message.insert.char);
-    main_window!.webContents.send("insert-request", message.position, char);
+    const value = String.fromCharCode(message.insert.value);
+    main_window!.webContents.send("insert-request", message.position, value);
   } else {
     console.log("Unknown message type");
   }
@@ -81,7 +81,7 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
         data = "\n";
         message = LocalOperation!.create({
           position: cursor_pos,
-          insert: { char: data.codePointAt(0) },
+          insert: { value: data.codePointAt(0) },
         });
       break;
       default:
@@ -91,7 +91,7 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
         ) {
           message = LocalOperation!.create({
             position: cursor_pos,
-            insert: { char: data.codePointAt(0) },
+            insert: { value: data.codePointAt(0) },
           });
           break;
         }
@@ -136,9 +136,9 @@ function createWindow(): void {
   
   main_window.on('ready-to-show', () => { main_window.show() });
 
-  if (is.dev) {
-    main_window.webContents.openDevTools();
-  }
+  // if (is.dev) {
+  //   main_window.webContents.openDevTools();
+  // }
 
   main_window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)

@@ -18,12 +18,12 @@ pub struct PeerBeacon {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RemoteOp {
     RemoteInsert {
-        key: Vec<state::NodeKey>,
+        id: Vec<state::NodeKey>,
         value: char,
     },
 
-    RemoteDelete {
-        key: Vec<state::NodeKey>,
+    RemoteRemove {
+        char_id: Vec<state::NodeKey>,
     },
 }
 
@@ -37,9 +37,6 @@ pub enum NodeEvent {
         id: PeerIdType,
         addr: SocketAddr,
     },
-
-    User(LocalOperation),
-
     PeerConnected {
         id: PeerIdType,
         sender: mpsc::Sender<PeerMessage>,
@@ -48,8 +45,7 @@ pub enum NodeEvent {
         id: PeerIdType,
     },
 
-    Network {
-        from: PeerIdType,
-        payload: PeerMessage,
-    },
+    User(LocalOperation),
+
+    Network(PeerMessage),
 }

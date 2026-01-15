@@ -39,7 +39,7 @@ export default function TextEdit(): React.JSX.Element {
       const el = edit_ref.current!;
       const content = el.textContent || "";
       el.textContent =
-        content.slice(0, position) + char + content.slice(position) + "\n";
+        content.slice(0, position) + char + content.slice(position);
       setCaretPosition(el, position + 1);
     });
     
