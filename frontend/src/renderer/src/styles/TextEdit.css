@@ -25,6 +25,8 @@ div.text-field {
 
   outline: 0px solid transparent;
   caret-color: var(--ev-c-text-2);
+
+  font-size: 30px;
 }
 
 ::selection {

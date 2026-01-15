@@ -4,7 +4,7 @@ package dte;
 message LocalRemove {};
 
 message LocalInsert {
-  uint32 char = 1;
+  uint32 value = 1;
 };
 
 message LocalOperation {

@@ -1,7 +1,6 @@
 use crate::protocol::{NodeEvent, PeerMessage};
 use crate::state::PeerIdType;
 use crate::{config, protocol, session, transport};
-use futures::SinkExt;
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
@@ -40,7 +39,8 @@ pub async fn run(
     let token_tcp = token.clone();
     let my_id = config.peer_id;
     tokio::spawn(async move {
-        if let Err(e) = transport::run_tcp_server(tx_tcp, token_tcp, config.tcp_port, my_id).await {
+        if let Err(e) = transport::run_tcp_listener(tx_tcp, token_tcp, config.tcp_port, my_id).await
+        {
             eprintln!("TCP Server crashed: {}", e);
         }
     });
@@ -60,53 +60,50 @@ pub async fn handle_events(
     let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
     let mut peers: HashMap<PeerIdType, mpsc::Sender<PeerMessage>> = HashMap::new();
 
-    while let Some(event) = rx.recv().await {
-        if token.is_cancelled() {
-            break;
-        }
-        match event {
-            NodeEvent::PeerDiscovered { id, addr } => {
-                if peers.contains_key(&id) {
-                    continue;
+    loop {
+        tokio::select! {
+            _ = token.cancelled() => {
+                eprintln!("Shutting down event loop");
+                break;
+            }
+            Some(event) = rx.recv() => {
+                match event {
+                    NodeEvent::PeerDiscovered { id, addr } => {
+                        if !peers.contains_key(&id) && my_id < id {
+                             let tx = tx_loopback.clone();
+                             let tok = token.clone();
+                             tokio::spawn(transport::connect_to_peer(addr, tx, tok, my_id));
+                        }
+                    }
+                    NodeEvent::PeerConnected { id, sender } => {
+                        peers.insert(id, sender);
+                    }
+                    NodeEvent::PeerDisconnected { id } => {
+                        peers.remove(&id);
+                    }
+                    NodeEvent::User(op) => {
+                        if let Some(remote_op) = session.handle_local_operation(op) {
+                            transport::send_local_op(&op, &mut writer).await;
+                            for (peer_id, tx) in peers.iter() {
+                                let tx = tx.clone();
+                                let msg = PeerMessage::SyncOp(remote_op.clone());
+                                eprintln!("Sending peer message: {:?}", msg);
+                                let peer_id = *peer_id;
+                                tokio::spawn(async move {
+                                    if let Err(_) = tx.send(msg).await {
+                                        eprintln!("Failed to send to peer {}, channel closed", peer_id);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                    NodeEvent::Network(msg) => {
+                         let local_op = session.handle_network(msg);
+                         transport::send_local_op(&local_op, &mut writer).await;
+                    }
                 }
-
-                if my_id > id {
-                    eprintln!("id ignored due to ordering: {}", id);
-                    continue;
-                }
-
-                eprintln!("initializing id {} on addr {}", id, addr);
-
-                let tx_clone = tx_loopback.clone();
-                let token_clone = token.clone();
-                tokio::spawn(transport::connect_to_peer(
-                    addr,
-                    tx_clone,
-                    token_clone,
-                    my_id,
-                ));
             }
-            NodeEvent::PeerConnected { id, sender } => {
-                eprintln!("Peer connected: {}", id);
-                peers.insert(id, sender);
-            }
-            NodeEvent::PeerDisconnected { id } => {
-                eprintln!("Peer disconnected: {}", id);
-                peers.remove(&id);
-            }
-            NodeEvent::User(op) => {
-                session.handle_local_operation(op);
-                let Ok(bytes) = transport::encode_protobuf(&op) else {
-                    eprintln!("Protobuf encoding failed");
-                    continue;
-                };
-                if let Err(e) = writer.send(bytes).await {
-                    eprintln!("Failed to write to stdout: {}", e);
-                }
-            }
-            NodeEvent::Network { from, payload } => {
-                eprintln!("Network message from {}: {:?}", from, payload);
-            }
+            else => break,
         }
     }
 }

@@ -49,7 +49,7 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
     assert_eq!(test_str, doc_str);
     for (id, ch) in iter::zip(ids, test_str.chars()) {
         println!("removing: {}", ch);
-        doc.remove_id(&id)?;
+        doc.remove_id(id)?;
     }
     let doc_str = doc.collect_string();
     assert_eq!("", doc_str);
@@ -163,11 +163,11 @@ pub fn relative_insert_remove_test() {
         match op {
             Operation::Insert(insert_op) => {
                 let left_id = match insert_op.left_op {
-                    -1 => &bos,
+                    -1 => bos,
                     idx => ids[idx as usize].as_ref().expect("Left ID should exist"),
                 };
                 let right_id = match insert_op.right_op {
-                    -1 => &eos,
+                    -1 => eos,
                     idx => ids[idx as usize].as_ref().expect("Right ID should exist"),
                 };
                 let new_id = doc.generate_id(left_id, right_id, &mut this_side);

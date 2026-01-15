@@ -3,7 +3,6 @@ use super::types::{
     DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, NodeKey, RESERVED_PEER,
 };
 use bincode;
-use tokio::task::Id;
 use core::panic;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
@@ -14,14 +13,14 @@ use std::cmp::min;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::io::Write;
-use std::sync::Arc;
+use std::rc::Rc;
 
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Doc {
-    id_list: BTreeMap<Arc<[NodeKey]>, Option<char>>, //TODO: Arc could be changed to Rc
+    id_list: BTreeMap<Rc<[NodeKey]>, Option<char>>,
     strategy: HashMap<usize, bool>,
     boundry: DigitType,
 }
@@ -30,11 +29,11 @@ impl Doc {
     pub fn new() -> Self {
         let mut id_list = BTreeMap::default();
         id_list.insert(
-            Arc::from(vec![NodeKey::new(MIN_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
+            Rc::from(vec![NodeKey::new(MIN_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
             None,
         );
         id_list.insert(
-            Arc::from(vec![NodeKey::new(MAX_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
+            Rc::from(vec![NodeKey::new(MAX_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
             None,
         );
         Self {
@@ -44,7 +43,7 @@ impl Doc {
         }
     }
 
-    pub(super) fn bos_id(&self) -> Arc<[NodeKey]> {
+    pub(super) fn bos_id(&self) -> Rc<[NodeKey]> {
         self.id_list
             .first_key_value()
             .expect("Error: BOS node missing")
@@ -52,7 +51,7 @@ impl Doc {
             .clone()
     }
 
-    pub(super) fn eos_id(&self) -> Arc<[NodeKey]> {
+    pub(super) fn eos_id(&self) -> Rc<[NodeKey]> {
         self.id_list
             .last_key_value()
             .expect("Error: EOS node missing")
@@ -65,7 +64,7 @@ impl Doc {
         this_side: &mut Side,
         absolute_position: usize,
         data: char,
-    ) -> Result<(), &'static str> {
+    ) -> Result<Rc<[NodeKey]>, &'static str> {
         let mut keys = self.id_list.keys();
         let before_key = keys
             .nth(absolute_position) // because of bos
@@ -73,11 +72,14 @@ impl Doc {
             .ok_or("missing key before position")?;
         let after_key = keys.next().cloned().ok_or("missing key after position")?;
         let id = self.generate_id(&before_key, &after_key, this_side);
-        self.id_list.insert(id, Some(data));
-        Ok(())
+        self.id_list.insert(id.clone(), Some(data));
+        Ok(id)
     }
 
-    pub fn remove_absolute(&mut self, absolute_position: usize) -> Result<(), &'static str> {
+    pub fn remove_absolute(
+        &mut self,
+        absolute_position: usize,
+    ) -> Result<Rc<[NodeKey]>, &'static str> {
         if absolute_position == 0 {
             // ignoring try of removing bos TODO: better way of doing this
             return Err("can't remove at position 0");
@@ -89,18 +91,18 @@ impl Doc {
             .cloned()
             .ok_or("missing position")?;
         self.id_list.remove(&id);
-        Ok(())
+        Ok(id)
     }
 
-    pub fn insert_id(&mut self, id: Arc<[NodeKey]>, data: char) -> Result<(), &'static str> {
+    pub fn insert_id(&mut self, id: Rc<[NodeKey]>, data: char) -> Result<(), &'static str> {
         (!self.id_list.contains_key(&id))
             .then(|| self.id_list.insert(id, Some(data)))
             .ok_or("ID alredy exists")
             .map(drop)
     }
 
-    pub fn remove_id(&mut self, id: &[NodeKey]) -> Result<(), &'static str> {
-        self.id_list.remove(id).ok_or("id not found").map(drop)
+    pub fn remove_id(&mut self, id: Rc<[NodeKey]>) -> Result<(), &'static str> {
+        self.id_list.remove(&id).ok_or("id not found").map(drop)
     }
 
     pub fn collect_string(&self) -> String {
@@ -114,7 +116,7 @@ impl Doc {
         p: &[NodeKey],
         q: &[NodeKey],
         side: &mut Side,
-    ) -> Arc<[NodeKey]> {
+    ) -> Rc<[NodeKey]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
         let (interval, p_pref, q_pref, depth) = Self::find_interval(p, q);
@@ -161,7 +163,7 @@ impl Doc {
         p: &[NodeKey],
         q: &[NodeKey],
         side: &mut Side,
-    ) -> Arc<[NodeKey]> {
+    ) -> Rc<[NodeKey]> {
         let mut once = true;
         let time = side.time_inc();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
@@ -212,7 +214,7 @@ impl Doc {
         Ok(doc)
     }
 
-    pub fn get_position(&self, key: Arc<[NodeKey]>) -> usize{
-        self.id_list.range(..&key).count()
+    pub fn get_position(&self, key: Rc<[NodeKey]>) -> usize {
+        self.id_list.range(..key).count()
     }
 }
