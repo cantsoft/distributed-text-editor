@@ -41,6 +41,16 @@ impl Decoder for PeerMessageCodec {
     }
 }
 
+pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<LocalOperation> {
+    match LocalOperation::decode(bytes) {
+        Ok(op) => Some(op),
+        Err(e) => {
+            eprintln!("Invalid protobuf on stdin: {}", e);
+            None
+        }
+    }
+}
+
 pub fn encode_protobuf(msg: &LocalOperation) -> Result<Bytes, prost::EncodeError> {
     let mut buf = BytesMut::with_capacity(msg.encoded_len());
     msg.encode(&mut buf)?;

@@ -103,8 +103,9 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
     const header = Buffer.alloc(4);
     header.writeUInt32BE(payload!.length, 0);
 
-    backend!.stdin.write(header);
-    backend!.stdin.write(payload);
+    if (backend && backend.stdin) {
+      backend.stdin.write(Buffer.concat([header, payload]));
+    }
   } catch (e) { console.error("Encode/Send error:", e); }
 }
 

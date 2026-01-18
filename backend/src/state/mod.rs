@@ -2,8 +2,6 @@ mod doc;
 mod side;
 #[cfg(test)]
 mod tests;
-mod types;
 
-pub use doc::Doc;
+pub use doc::{Doc, NodeKey};
 pub use side::Side;
-pub use types::{NodeKey, PeerIdType};

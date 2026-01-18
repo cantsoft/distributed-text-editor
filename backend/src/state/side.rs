@@ -1,4 +1,4 @@
-use super::types::{PeerIdType, TimestampType};
+use crate::types::{PeerIdType, TimestampType};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Side {
