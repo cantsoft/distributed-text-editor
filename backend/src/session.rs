@@ -1,6 +1,5 @@
-use crate::state::NodeKey;
 use crate::{protocol, state};
-use state::{Doc, Side};
+use state::{Doc, NodeKey, Side};
 use std::rc::Rc;
 
 pub struct Session {

@@ -1,6 +1,7 @@
-use crate::state::PeerIdType;
+use crate::types::PeerIdType;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fs;
 use std::path::Path;
 
@@ -11,7 +12,52 @@ pub struct NodeConfig {
     pub udp_discovery_port: u16,
 }
 
-pub fn load_or_create(file_path: &str) -> Result<NodeConfig, Box<dyn std::error::Error>> {
+#[derive(Debug)]
+pub enum ConfigError {
+    Io(std::io::Error),
+    Parse(toml::de::Error),
+    Serialize(toml::ser::Error),
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ConfigError::Io(err) => write!(f, "IO error: {}", err),
+            ConfigError::Parse(err) => write!(f, "Parse error: {}", err),
+            ConfigError::Serialize(err) => write!(f, "Serialize error: {}", err),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ConfigError::Io(err) => Some(err),
+            ConfigError::Parse(err) => Some(err),
+            ConfigError::Serialize(err) => Some(err),
+        }
+    }
+}
+
+impl From<std::io::Error> for ConfigError {
+    fn from(err: std::io::Error) -> Self {
+        ConfigError::Io(err)
+    }
+}
+
+impl From<toml::de::Error> for ConfigError {
+    fn from(err: toml::de::Error) -> Self {
+        ConfigError::Parse(err)
+    }
+}
+
+impl From<toml::ser::Error> for ConfigError {
+    fn from(err: toml::ser::Error) -> Self {
+        ConfigError::Serialize(err)
+    }
+}
+
+pub fn load_or_create(file_path: &str) -> Result<NodeConfig, ConfigError> {
     let path = Path::new(file_path);
 
     if path.exists() {

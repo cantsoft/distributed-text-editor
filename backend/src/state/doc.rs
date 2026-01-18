@@ -1,6 +1,7 @@
 use super::side::Side;
-use super::types::{
-    DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, NodeKey, RESERVED_PEER,
+use crate::types::{
+    DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, PeerIdType, RESERVED_PEER,
+    TimestampType,
 };
 use bincode;
 use core::panic;
@@ -17,6 +18,23 @@ use std::rc::Rc;
 
 // for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct NodeKey {
+    digit: DigitType,
+    peer_id: PeerIdType,
+    time: TimestampType,
+}
+
+impl NodeKey {
+    pub fn new(digit: DigitType, peer_id: PeerIdType, time: TimestampType) -> Self {
+        Self {
+            digit: digit,
+            peer_id: peer_id,
+            time: time,
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Doc {
