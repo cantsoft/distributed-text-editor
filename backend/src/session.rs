@@ -3,8 +3,8 @@ use state::{Doc, NodeKey, Side};
 use std::rc::Rc;
 
 pub struct Session {
-    doc: Doc,
-    this_side: Side,
+    pub(crate) doc: Doc,
+    pub(crate) this_side: Side,
 }
 
 impl Session {

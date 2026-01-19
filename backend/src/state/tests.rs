@@ -1,20 +1,14 @@
-use super::{
-    doc::Doc,
-    side::Side,
-    types::{DigitType, NodeKey},
-};
+use super::{Doc, NodeKey, Side};
+use crate::{protocol, session::Session, types::DigitType};
 use serde::Deserialize;
-use std::{iter, sync::Arc};
+use std::{iter, rc::Rc};
 
-fn from_digits(digits: &[DigitType]) -> Arc<[NodeKey]> {
+fn from_digits(digits: &[DigitType]) -> Rc<[NodeKey]> {
     digits
         .iter()
-        .map(|digit| NodeKey {
-            digit: *digit,
-            peer_id: 0,
-            time: 0,
-        })
-        .collect()
+        .map(|digit| NodeKey::new(*digit, 0, 0))
+        .collect::<Vec<_>>()
+        .into()
 }
 
 #[test]
@@ -22,7 +16,7 @@ pub fn id_test() {
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
     let id = doc.generate_id(
-        &from_digits(&[0, std::u32::MAX]),
+        &from_digits(&[0, u32::MAX]),
         &from_digits(&[1]),
         &mut this_side,
     ); // digits are close on purpose
@@ -83,10 +77,10 @@ pub fn remove_absolute_test() -> Result<(), &'static str> {
         doc.insert_id(new_id.clone(), ch)?;
         ids.push(new_id.clone());
     }
-    (0..=test_str.len())
+    (1..=test_str.len())
         .rev()
         .filter(|i| i % 2 == 0)
-        .try_for_each(|i| doc.remove_absolute(i))?;
+        .try_for_each(|i| doc.remove_absolute(i).map(drop))?;
     let doc_str = doc.collect_string();
     assert_eq!("abcdefg", doc_str);
     Ok(())
@@ -155,7 +149,7 @@ pub fn relative_insert_remove_test() {
     let mut this_side = Side::new(123);
     let mut doc = Doc::new();
     // ids maps op_index -> NodeKey. Use Option because Remove ops don't produce a NodeKey.
-    let mut ids: Vec<Option<Arc<[NodeKey]>>> = Vec::new();
+    let mut ids: Vec<Option<Rc<[NodeKey]>>> = Vec::new();
     let eos = doc.eos_id();
     let bos = doc.bos_id();
 
@@ -163,14 +157,14 @@ pub fn relative_insert_remove_test() {
         match op {
             Operation::Insert(insert_op) => {
                 let left_id = match insert_op.left_op {
-                    -1 => bos,
-                    idx => ids[idx as usize].as_ref().expect("Left ID should exist"),
+                    -1 => bos.clone(),
+                    idx => ids[idx as usize].as_ref().expect("Left ID should exist").clone(),
                 };
                 let right_id = match insert_op.right_op {
-                    -1 => eos,
-                    idx => ids[idx as usize].as_ref().expect("Right ID should exist"),
+                    -1 => eos.clone(),
+                    idx => ids[idx as usize].as_ref().expect("Right ID should exist").clone(),
                 };
-                let new_id = doc.generate_id(left_id, right_id, &mut this_side);
+                let new_id = doc.generate_id(&left_id, &right_id, &mut this_side);
                 ids.push(Some(new_id.clone()));
                 doc.insert_id(new_id, insert_op.char)
                     .expect("Insert failed");
@@ -178,7 +172,8 @@ pub fn relative_insert_remove_test() {
             Operation::Remove(remove_op) => {
                 let remove_id = ids[remove_op.to_remove_op as usize]
                     .as_ref()
-                    .expect("ID to remove should exist");
+                    .expect("ID to remove should exist")
+                    .clone();
                 doc.remove_id(remove_id).expect("Remove failed");
                 ids.push(None);
             }
@@ -187,4 +182,25 @@ pub fn relative_insert_remove_test() {
     let text = doc.collect_string();
     println!("Final text: {}", text);
     assert_eq!(text, data_wrapper.result);
+}
+
+#[test]
+fn session_binary_save_load_test() {
+    let mut session = Session::new(1);
+    let op = protocol::LocalOperation {
+        position: 0,
+        operation_type: Some(protocol::local_operation::OperationType::Insert(
+            protocol::LocalInsert { value: 'a' as u32 },
+        )),
+    };
+    session.handle_local_operation(op);
+
+    let binary_data = session.save_binary().expect("Failed to save binary");
+    let loaded_session = Session::load_binary(2, &binary_data).expect("Failed to load binary");
+
+    assert_eq!(
+        session.doc.collect_string(),
+        loaded_session.doc.collect_string()
+    );
+    assert_eq!(loaded_session.this_side.peer_id(), 2);
 }
