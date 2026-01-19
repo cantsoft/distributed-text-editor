@@ -218,18 +218,28 @@ impl Doc {
         Ok(())
     }
 
-    pub fn save_binary(&self, path: &str) -> std::io::Result<()> {
+    pub fn save_binary_to_file(&self, path: &str) -> std::io::Result<()> {
         let file = File::create(path)?;
         bincode::serialize_into(file, self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         Ok(())
     }
 
-    pub fn load_binary(path: &str) -> std::io::Result<Self> {
+    pub fn load_binary_from_file(path: &str) -> std::io::Result<Self> {
         let file = File::open(path)?;
         let doc = bincode::deserialize_from(file)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         Ok(doc)
+    }
+
+    pub fn save_binary(&self) -> std::io::Result<Vec<u8>> {
+        bincode::serialize(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
+
+    pub fn load_binary(data: &[u8]) -> std::io::Result<Self> {
+        bincode::deserialize(data)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
     pub fn get_position(&self, key: Rc<[NodeKey]>) -> usize {
