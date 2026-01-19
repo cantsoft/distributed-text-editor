@@ -4,6 +4,8 @@ mod protocol;
 mod service;
 mod session;
 mod state;
+#[cfg(test)]
+mod tests;
 mod transport;
 mod types;
 

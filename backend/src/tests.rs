@@ -1,27 +1,24 @@
-use super::{Doc, NodeKey, Side};
-use crate::types::Digit;
+use crate::state::{Doc, NodeKey};
+use crate::types::{Digit, PeerId};
 use serde::Deserialize;
-use std::{iter, sync::Arc};
+use std::iter;
+use std::rc::Rc;
 
-fn from_digits(digits: &[Digit]) -> Arc<[NodeKey]> {
+fn from_digits(digits: &[Digit]) -> Rc<[NodeKey]> {
     digits
         .iter()
-        .map(|digit| NodeKey {
-            digit: *digit,
-            peer_id: 0,
-            time: 0,
-        })
+        .map(|digit| NodeKey::new(*digit, 0, 0))
         .collect()
 }
 
 #[test]
 pub fn id_test() {
-    let mut this_side = Side::new(123);
+    let peer_id: PeerId = 123;
     let mut doc = Doc::new();
     let id = doc.generate_id(
         &from_digits(&[0, std::u32::MAX]),
         &from_digits(&[1]),
-        &mut this_side,
+        peer_id,
     ); // digits are close on purpose
     println!("{:?}", id);
 }
@@ -29,7 +26,7 @@ pub fn id_test() {
 #[test]
 pub fn insert_delete_collect_test() -> Result<(), &'static str> {
     let test_str = "abcdefghijklmnoprstuwxyz1234567890";
-    let mut this_side = Side::new(123);
+    let peer_id: PeerId = 123;
     let mut doc = Doc::new();
     let mut ids = Vec::new();
     let mut new_id = doc.bos_id();
@@ -37,7 +34,7 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
     for ch in test_str.chars() {
         println!("ch: {:?}", ch);
         println!("after: {:?}", new_id);
-        new_id = doc.generate_id(&new_id, &eos, &mut this_side);
+        new_id = doc.generate_id(&new_id, &eos, peer_id);
         println!("new_id: {:?}\n", new_id);
         doc.insert_id(new_id.clone(), ch)?;
         ids.push(new_id.clone());
@@ -55,11 +52,11 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
 
 #[test]
 pub fn insert_absolute_test() -> Result<(), &'static str> {
-    let mut this_side = Side::new(123);
+    let peer_id: PeerId = 123;
     let mut doc = Doc::new();
-    doc.insert_absolute(&mut this_side, 0, 'a')?;
-    doc.insert_absolute(&mut this_side, 1, 'c')?;
-    doc.insert_absolute(&mut this_side, 1, 'b')?;
+    doc.insert_absolute(peer_id, 0, 'a')?;
+    doc.insert_absolute(peer_id, 1, 'c')?;
+    doc.insert_absolute(peer_id, 1, 'b')?;
     let doc_str = doc.collect_string();
     assert_eq!("abc", doc_str);
     Ok(())
@@ -68,22 +65,22 @@ pub fn insert_absolute_test() -> Result<(), &'static str> {
 #[test]
 pub fn remove_absolute_test() -> Result<(), &'static str> {
     let test_str = "aabbccddeeffgg";
-    let mut this_side = Side::new(123);
+    let peer_id: PeerId = 123;
     let mut doc = Doc::new();
     let mut ids = Vec::new();
     let mut new_id = doc.bos_id();
     let eos = doc.eos_id();
     for ch in test_str.chars() {
         println!("ch: {}", ch);
-        new_id = doc.generate_id(&new_id, &eos, &mut this_side);
+        new_id = doc.generate_id(&new_id, &eos, peer_id);
         println!("new_id: {:?}\n", &new_id);
         doc.insert_id(new_id.clone(), ch)?;
         ids.push(new_id.clone());
     }
     (0..=test_str.len())
         .rev()
-        .filter(|i| i % 2 == 0)
-        .try_for_each(|i| doc.remove_absolute(i))?;
+        .filter(|i| i % 2 == 1)
+        .try_for_each(|i| doc.remove_absolute(i).map(drop))?;
     let doc_str = doc.collect_string();
     assert_eq!("abcdefg", doc_str);
     Ok(())
@@ -91,13 +88,13 @@ pub fn remove_absolute_test() -> Result<(), &'static str> {
 
 #[test]
 pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
-    let mut this_side = Side::new(123);
+    let peer_id: PeerId = 123;
     let mut doc = Doc::new();
-    doc.insert_absolute(&mut this_side, 0, 'a')?;
-    doc.insert_absolute(&mut this_side, 1, 'b')?;
-    doc.insert_absolute(&mut this_side, 2, 'c')?;
-    doc.insert_absolute(&mut this_side, 3, 'd')?;
-    doc.insert_absolute(&mut this_side, 4, 'e')?;
+    doc.insert_absolute(peer_id, 0, 'a')?;
+    doc.insert_absolute(peer_id, 1, 'b')?;
+    doc.insert_absolute(peer_id, 2, 'c')?;
+    doc.insert_absolute(peer_id, 3, 'd')?;
+    doc.insert_absolute(peer_id, 4, 'e')?;
     doc.remove_absolute(1)?; // bcde
     doc.remove_absolute(4)?; // bcd
     doc.remove_absolute(1)?; // cd
@@ -109,6 +106,7 @@ pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct InsertOp {
     peer_id: u32,
     timestamp: u32,
@@ -118,6 +116,7 @@ struct InsertOp {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct RemoveOp {
     peer_id: u32,
     timestamp: u32,
@@ -149,10 +148,9 @@ pub fn relative_insert_remove_test() {
         data_wrapper.operations.len()
     );
 
-    let mut this_side = Side::new(123);
     let mut doc = Doc::new();
     // ids maps op_index -> NodeKey. Use Option because Remove ops don't produce a NodeKey.
-    let mut ids: Vec<Option<Arc<[NodeKey]>>> = Vec::new();
+    let mut ids: Vec<Option<Rc<[NodeKey]>>> = Vec::new();
     let eos = doc.eos_id();
     let bos = doc.bos_id();
 
@@ -160,14 +158,21 @@ pub fn relative_insert_remove_test() {
         match op {
             Operation::Insert(insert_op) => {
                 let left_id = match insert_op.left_op {
-                    -1 => bos,
-                    idx => ids[idx as usize].as_ref().expect("Left ID should exist"),
+                    -1 => bos.clone(),
+                    idx => ids[idx as usize]
+                        .as_ref()
+                        .expect("Left ID should exist")
+                        .clone(),
                 };
                 let right_id = match insert_op.right_op {
-                    -1 => eos,
-                    idx => ids[idx as usize].as_ref().expect("Right ID should exist"),
+                    -1 => eos.clone(),
+                    idx => ids[idx as usize]
+                        .as_ref()
+                        .expect("Right ID should exist")
+                        .clone(),
                 };
-                let new_id = doc.generate_id(left_id, right_id, &mut this_side);
+                let peer_id = insert_op.peer_id as PeerId;
+                let new_id = doc.generate_id(&left_id, &right_id, peer_id);
                 ids.push(Some(new_id.clone()));
                 doc.insert_id(new_id, insert_op.char)
                     .expect("Insert failed");
@@ -175,7 +180,8 @@ pub fn relative_insert_remove_test() {
             Operation::Remove(remove_op) => {
                 let remove_id = ids[remove_op.to_remove_op as usize]
                     .as_ref()
-                    .expect("ID to remove should exist");
+                    .expect("ID to remove should exist")
+                    .clone();
                 doc.remove_id(remove_id).expect("Remove failed");
                 ids.push(None);
             }

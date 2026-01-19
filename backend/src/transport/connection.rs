@@ -1,9 +1,9 @@
 use super::codec::{PeerMessageCodec, encode_protobuf, try_decode_op};
-use crate::{config, protocol, select_loop, types};
+use crate::types::PeerId;
+use crate::{config, protocol, select_loop};
 use futures::{SinkExt, StreamExt};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::io::ErrorKind;
-use std::net::{Ipv4Addr, SocketAddr};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::mpsc;
@@ -44,7 +44,8 @@ fn bind_udp_shared(port: u16) -> std::io::Result<tokio::net::UdpSocket> {
     socket.set_reuse_port(true)?;
     socket.set_broadcast(true)?;
     socket.set_nonblocking(true)?;
-    let address = SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::UNSPECIFIED), port);
+    let address =
+        std::net::SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED), port);
     socket.bind(&address.into())?;
     let std_socket: std::net::UdpSocket = socket.into();
     tokio::net::UdpSocket::from_std(std_socket)
@@ -109,7 +110,7 @@ pub async fn run_tcp_listener(
     tx: PacketSender,
     token: CancellationToken,
     tcp_port: u16,
-    my_id: types::PeerIdType,
+    my_id: PeerId,
 ) -> std::io::Result<()> {
     let addr_str = format!("0.0.0.0:{}", tcp_port);
     let listener = TcpListener::bind(&addr_str).await?;
@@ -135,10 +136,10 @@ pub async fn run_tcp_listener(
 }
 
 pub async fn connect_to_peer(
-    addr: SocketAddr,
+    addr: std::net::SocketAddr,
     tx: PacketSender,
     token: CancellationToken,
-    my_id: types::PeerIdType,
+    my_id: PeerId,
 ) {
     eprintln!("Connecting to peer at {}", addr);
     match TcpStream::connect(addr).await {
@@ -153,7 +154,7 @@ async fn handle_connection(
     mut stream: TcpStream,
     tx: PacketSender,
     token: CancellationToken,
-    my_id: types::PeerIdType,
+    my_id: PeerId,
 ) {
     if let Err(e) = stream.write_all(&[my_id]).await {
         eprintln!("Handshake write error: {}", e);
@@ -191,15 +192,15 @@ async fn handle_connection(
             _ = write_token.cancelled() => return,
 
             msg = rx_peer.recv() => {
-                    match msg {
-                        Some(m) => {
-                            if let Err(e) = framed_write.send(m).await {
-                                eprintln!("Write error to peer {}: {}", peer_id, e);
-                                break;
-                            }
+                match msg {
+                    Some(m) => {
+                        if let Err(e) = framed_write.send(m).await {
+                            eprintln!("Write error to peer {}: {}", peer_id, e);
+                            break;
                         }
-                        None => break,
                     }
+                    None => break,
+                }
             }
         }
     });
@@ -210,7 +211,7 @@ async fn handle_connection(
         frame = framed_read.next() => {
             match frame {
                 Some(Ok(msg)) => {
-                    eprintln!("Recived peer message: {:?}", msg);
+                    eprintln!("Received peer message: {:?}", msg);
                     if let Err(e) = tx.send(protocol::NodeEvent::Network(msg)).await {
                         eprintln!("Failed to forward message from peer {}: {}", peer_id, e);
                         break;

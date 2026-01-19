@@ -1,4 +1,5 @@
-use crate::{config, protocol, select_loop, session, transport, types};
+use crate::types::PeerId;
+use crate::{config, protocol, select_loop, session, transport};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
@@ -7,8 +8,6 @@ use tokio_util::sync::CancellationToken;
 pub async fn run(config: config::NodeConfig) -> std::io::Result<()> {
     let (tx, rx) = mpsc::channel(255);
     let token = CancellationToken::new();
-
-    tokio::spawn(transport::run_stdin_listener(tx.clone(), token.clone()));
 
     let tx_stdin = tx.clone();
     let token_stdin = token.clone();
@@ -50,11 +49,11 @@ pub async fn handle_events(
     mut rx: tokio::sync::mpsc::Receiver<protocol::NodeEvent>,
     tx_loopback: mpsc::Sender<protocol::NodeEvent>,
     token: tokio_util::sync::CancellationToken,
-    my_id: types::PeerIdType,
+    my_id: PeerId,
 ) -> std::io::Result<()> {
     let mut session = session::Session::new(my_id);
     let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
-    let mut peers: HashMap<types::PeerIdType, mpsc::Sender<protocol::PeerMessage>> = HashMap::new();
+    let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>> = HashMap::new();
 
     select_loop! {
         _ = token.cancelled() => {

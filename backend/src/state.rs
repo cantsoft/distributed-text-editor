@@ -1,10 +1,8 @@
-use super::side::Side;
 use crate::types::{
-    DEFAULT_BOUNDARY, DigitType, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, PeerIdType, RESERVED_PEER,
-    TimestampType,
+    DEFAULT_BOUNDARY, Digit, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, PeerId, RESERVED_PEER,
+    Timestamp,
 };
 use bincode;
-use core::panic;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
 use rand::rngs::StdRng;
@@ -16,18 +14,24 @@ use std::fs::File;
 use std::io::Write;
 use std::rc::Rc;
 
-// for reproducible results during testing
 const SEED: [u8; 32] = [0; 32];
+
+pub fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct NodeKey {
-    digit: DigitType,
-    peer_id: PeerIdType,
-    time: TimestampType,
+    digit: Digit,
+    peer_id: PeerId,
+    time: Timestamp,
 }
 
 impl NodeKey {
-    pub fn new(digit: DigitType, peer_id: PeerIdType, time: TimestampType) -> Self {
+    pub fn new(digit: Digit, peer_id: PeerId, time: Timestamp) -> Self {
         Self {
             digit: digit,
             peer_id: peer_id,
@@ -40,7 +44,7 @@ impl NodeKey {
 pub struct Doc {
     id_list: BTreeMap<Rc<[NodeKey]>, Option<char>>,
     strategy: HashMap<usize, bool>,
-    boundry: DigitType,
+    boundary: Digit,
 }
 
 impl Doc {
@@ -57,11 +61,11 @@ impl Doc {
         Self {
             id_list: id_list,
             strategy: HashMap::new(),
-            boundry: DEFAULT_BOUNDARY,
+            boundary: DEFAULT_BOUNDARY,
         }
     }
 
-    pub(super) fn bos_id(&self) -> Rc<[NodeKey]> {
+    pub fn bos_id(&self) -> Rc<[NodeKey]> {
         self.id_list
             .first_key_value()
             .expect("Error: BOS node missing")
@@ -69,7 +73,7 @@ impl Doc {
             .clone()
     }
 
-    pub(super) fn eos_id(&self) -> Rc<[NodeKey]> {
+    pub fn eos_id(&self) -> Rc<[NodeKey]> {
         self.id_list
             .last_key_value()
             .expect("Error: EOS node missing")
@@ -79,7 +83,7 @@ impl Doc {
 
     pub fn insert_absolute(
         &mut self,
-        this_side: &mut Side,
+        peer_id: PeerId,
         absolute_position: usize,
         data: char,
     ) -> Result<Rc<[NodeKey]>, &'static str> {
@@ -89,7 +93,7 @@ impl Doc {
             .cloned()
             .ok_or("missing key before position")?;
         let after_key = keys.next().cloned().ok_or("missing key after position")?;
-        let id = self.generate_id(&before_key, &after_key, this_side);
+        let id = self.generate_id(&before_key, &after_key, peer_id);
         self.id_list.insert(id.clone(), Some(data));
         Ok(id)
     }
@@ -99,8 +103,7 @@ impl Doc {
         absolute_position: usize,
     ) -> Result<Rc<[NodeKey]>, &'static str> {
         if absolute_position == 0 {
-            // ignoring try of removing bos TODO: better way of doing this
-            return Err("can't remove at position 0");
+            return Err("Can't remove at position 0");
         }
         let id = self
             .id_list
@@ -115,7 +118,7 @@ impl Doc {
     pub fn insert_id(&mut self, id: Rc<[NodeKey]>, data: char) -> Result<(), &'static str> {
         (!self.id_list.contains_key(&id))
             .then(|| self.id_list.insert(id, Some(data)))
-            .ok_or("ID alredy exists")
+            .ok_or("ID already exists")
             .map(drop)
     }
 
@@ -124,8 +127,6 @@ impl Doc {
     }
 
     pub fn collect_string(&self) -> String {
-        // eprintln!("eos {:?}", self.id_list.first_key_value());
-        // eprintln!("bos {:?}", self.id_list.last_key_value());
         self.id_list.values().filter_map(|ch| *ch).collect()
     }
 
@@ -133,12 +134,12 @@ impl Doc {
         &mut self,
         p: &[NodeKey],
         q: &[NodeKey],
-        side: &mut Side,
+        peer_id: PeerId,
     ) -> Rc<[NodeKey]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
         let (interval, p_pref, q_pref, depth) = Self::find_interval(p, q);
-        let boundary = BigInt::new(Sign::Plus, vec![self.boundry]);
+        let boundary = BigInt::new(Sign::Plus, vec![self.boundary]);
         let step = min(boundary, interval)
             .to_u32_digits()
             .1
@@ -159,8 +160,8 @@ impl Doc {
             .into_iter()
             .chain(std::iter::repeat_n(0, depth.saturating_sub(len)))
             .rev()
-            .collect::<Vec<DigitType>>();
-        Self::construct_id(&digits, p, q, side)
+            .collect::<Vec<Digit>>();
+        Self::construct_id(&digits, p, q, peer_id)
     }
 
     fn find_interval(p: &[NodeKey], q: &[NodeKey]) -> (BigInt, BigInt, BigInt, usize) {
@@ -176,14 +177,9 @@ impl Doc {
         (interval, p_pref, q_pref, depth)
     }
 
-    fn construct_id(
-        r: &[DigitType],
-        p: &[NodeKey],
-        q: &[NodeKey],
-        side: &mut Side,
-    ) -> Rc<[NodeKey]> {
+    fn construct_id(r: &[Digit], p: &[NodeKey], q: &[NodeKey], peer_id: PeerId) -> Rc<[NodeKey]> {
         let mut once = true;
-        let time = side.time_inc();
+        let time = now_millis();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
         let mut id = Vec::new();
         for digit in r {
@@ -199,8 +195,8 @@ impl Doc {
                     }; // temporary safeguard
                     NodeKey {
                         digit: *digit,
-                        peer_id: side.peer_id(),
-                        time: time,
+                        peer_id,
+                        time,
                     }
                 }
             };

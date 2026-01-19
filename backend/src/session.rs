@@ -1,17 +1,18 @@
-use crate::{protocol, state};
-use state::{Doc, NodeKey, Side};
+use crate::protocol;
+use crate::state::{Doc, NodeKey};
+use crate::types::PeerId;
 use std::rc::Rc;
 
 pub struct Session {
     doc: Doc,
-    this_side: Side,
+    local_id: PeerId,
 }
 
 impl Session {
     pub fn new(id: u8) -> Self {
         Self {
             doc: Doc::new(),
-            this_side: Side::new(id),
+            local_id: id,
         }
     }
 
@@ -79,10 +80,7 @@ impl Session {
         };
         eprintln!("Insert: {} ({:?})", insert.value, value);
 
-        match self
-            .doc
-            .insert_absolute(&mut self.this_side, pos as usize, value)
-        {
+        match self.doc.insert_absolute(self.local_id, pos as usize, value) {
             Ok(id) => Some(protocol::RemoteOp::RemoteInsert {
                 id: id.to_vec(),
                 value,
