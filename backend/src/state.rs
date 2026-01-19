@@ -65,7 +65,8 @@ impl Doc {
         }
     }
 
-    pub fn bos_id(&self) -> Rc<[NodeKey]> {
+    #[cfg(test)]
+    pub(super) fn bos_id(&self) -> Rc<[NodeKey]> {
         self.id_list
             .first_key_value()
             .expect("Error: BOS node missing")
@@ -73,12 +74,46 @@ impl Doc {
             .clone()
     }
 
-    pub fn eos_id(&self) -> Rc<[NodeKey]> {
+    #[cfg(test)]
+    pub(super) fn eos_id(&self) -> Rc<[NodeKey]> {
         self.id_list
             .last_key_value()
             .expect("Error: EOS node missing")
             .0
             .clone()
+    }
+
+    pub fn save_text(&self, path: &str) -> std::io::Result<()> {
+        let content = self.collect_string();
+        let mut file = File::create(path)?;
+        // Add UTF-8 BOM
+        file.write_all(b"\xEF\xBB\xBF")?;
+        file.write_all(content.as_bytes())?;
+        Ok(())
+    }
+
+    pub fn save_bytes(&self) -> std::io::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    }
+
+    pub fn load_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        let doc = bincode::deserialize(bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        Ok(doc)
+    }
+
+    pub fn remove_id(&mut self, id: Rc<[NodeKey]>) -> Result<(), &'static str> {
+        self.id_list.remove(&id).ok_or("id not found").map(drop)
+    }
+
+    pub fn get_position(&self, key: Rc<[NodeKey]>) -> usize {
+        self.id_list.range(..key).count()
+    }
+
+    pub fn collect_string(&self) -> String {
+        // eprintln!("eos {:?}", self.id_list.first_key_value());
+        // eprintln!("bos {:?}", self.id_list.last_key_value());
+        self.id_list.values().filter_map(|ch| *ch).collect()
     }
 
     pub fn insert_absolute(
@@ -120,14 +155,6 @@ impl Doc {
             .then(|| self.id_list.insert(id, Some(data)))
             .ok_or("ID already exists")
             .map(drop)
-    }
-
-    pub fn remove_id(&mut self, id: Rc<[NodeKey]>) -> Result<(), &'static str> {
-        self.id_list.remove(&id).ok_or("id not found").map(drop)
-    }
-
-    pub fn collect_string(&self) -> String {
-        self.id_list.values().filter_map(|ch| *ch).collect()
     }
 
     pub(super) fn generate_id(
@@ -203,32 +230,5 @@ impl Doc {
             id.push(pos);
         }
         id.into()
-    }
-
-    pub fn save_text(&self, path: &str) -> std::io::Result<()> {
-        let content = self.collect_string();
-        let mut file = File::create(path)?;
-        // Add UTF-8 BOM
-        file.write_all(b"\xEF\xBB\xBF")?;
-        file.write_all(content.as_bytes())?;
-        Ok(())
-    }
-
-    pub fn save_binary(&self, path: &str) -> std::io::Result<()> {
-        let file = File::create(path)?;
-        bincode::serialize_into(file, self)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        Ok(())
-    }
-
-    pub fn load_binary(path: &str) -> std::io::Result<Self> {
-        let file = File::open(path)?;
-        let doc = bincode::deserialize_from(file)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        Ok(doc)
-    }
-
-    pub fn get_position(&self, key: Rc<[NodeKey]>) -> usize {
-        self.id_list.range(..key).count()
     }
 }

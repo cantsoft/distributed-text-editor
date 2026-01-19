@@ -9,24 +9,28 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(id: u8) -> Self {
-        Self {
-            doc: Doc::new(),
-            local_id: id,
-        }
+    pub fn from(id: PeerId, path: &str) -> Self {
+        let doc = match std::fs::read(path) {
+            Ok(bytes) => Doc::load_bytes(&bytes).unwrap_or_else(|e| {
+                eprintln!("Failed to parse {}: {}", path, e);
+                Doc::new()
+            }),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Doc::new(),
+            Err(e) => {
+                eprintln!("Failed to read {}: {}", path, e);
+                Doc::new()
+            }
+        };
+
+        Self { doc, local_id: id }
     }
 
-    pub fn handle_local_operation(
-        &mut self,
-        op: protocol::LocalOperation,
-    ) -> Option<protocol::RemoteOp> {
-        let ret = match op.operation_type {
-            Some(protocol::local_operation::OperationType::Insert(insert)) => {
+    pub fn handle_local_op(&mut self, op: protocol::LocalOp) -> Option<protocol::RemoteOp> {
+        let ret = match op.op_type {
+            Some(protocol::local_op::OpType::Insert(insert)) => {
                 self.apply_insert(op.position, insert)
             }
-            Some(protocol::local_operation::OperationType::Remove(_)) => {
-                self.apply_remove(op.position)
-            }
+            Some(protocol::local_op::OpType::Remove(_)) => self.apply_remove(op.position),
             None => None,
         };
         eprintln!("Pos: {}", op.position);
@@ -34,7 +38,7 @@ impl Session {
         ret
     }
 
-    pub fn handle_network(&mut self, payload: protocol::PeerMessage) -> protocol::LocalOperation {
+    pub fn handle_network(&mut self, payload: protocol::PeerMessage) -> protocol::LocalOp {
         match payload {
             protocol::PeerMessage::SyncOp(remote_op) => match remote_op {
                 protocol::RemoteOp::RemoteInsert { id: key, value } => {
@@ -43,13 +47,11 @@ impl Session {
                         eprintln!("Error while inserting character: {}", e);
                     }
                     let pos = self.doc.get_position(key.clone());
-                    protocol::LocalOperation {
+                    protocol::LocalOp {
                         position: pos as u32,
-                        operation_type: Some(protocol::local_operation::OperationType::Insert(
-                            protocol::LocalInsert {
-                                value: value as u32,
-                            },
-                        )),
+                        op_type: Some(protocol::local_op::OpType::Insert(protocol::LocalInsert {
+                            value: value as u32,
+                        })),
                     }
                 }
                 protocol::RemoteOp::RemoteRemove { char_id: key } => {
@@ -58,15 +60,18 @@ impl Session {
                     if let Err(e) = self.doc.remove_id(key.clone()) {
                         eprintln!("Error while deleting character: {}", e);
                     }
-                    protocol::LocalOperation {
+                    protocol::LocalOp {
                         position: pos as u32,
-                        operation_type: Some(protocol::local_operation::OperationType::Remove(
-                            protocol::LocalRemove {},
-                        )),
+                        op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
                     }
                 }
             },
         }
+    }
+
+    pub fn save_to_path(&self, path: &str) -> std::io::Result<()> {
+        let bytes = self.doc.save_bytes()?;
+        std::fs::write(path, bytes)
     }
 
     fn apply_insert(

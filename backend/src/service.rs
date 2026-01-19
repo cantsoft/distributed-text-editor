@@ -45,23 +45,29 @@ pub async fn run(config: config::NodeConfig) -> std::io::Result<()> {
     handle_events(rx, tx, token, config.peer_id).await
 }
 
-pub async fn handle_events(
+async fn handle_events(
     mut rx: tokio::sync::mpsc::Receiver<protocol::NodeEvent>,
     tx_loopback: mpsc::Sender<protocol::NodeEvent>,
     token: tokio_util::sync::CancellationToken,
     my_id: PeerId,
 ) -> std::io::Result<()> {
-    let mut session = session::Session::new(my_id);
-    let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
+    let save_path = "./native/doc.bin";
+    let stdout = tokio::io::stdout();
+    let mut session = session::Session::from(my_id, save_path);
+    let mut writer = FramedWrite::new(stdout, LengthDelimitedCodec::new());
     let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>> = HashMap::new();
 
     select_loop! {
         _ = token.cancelled() => {
             eprintln!("Token canceled");
-            return Ok(());
+            break;
         }
 
-        Some(event) = rx.recv() => {
+        event = rx.recv() => {
+            let Some(event) = event else {
+                eprintln!("Event channel closed");
+                break;
+            };
             use protocol::NodeEvent;
             match event {
                 NodeEvent::PeerDiscovered { id, addr } => {
@@ -78,7 +84,7 @@ pub async fn handle_events(
                     peers.remove(&id);
                 }
                 NodeEvent::User(op) => {
-                    if let Some(remote_op) = session.handle_local_operation(op) {
+                    if let Some(remote_op) = session.handle_local_op(op) {
                         transport::send_local_op(&op, &mut writer).await;
                         for (peer_id, tx) in peers.iter() {
                             let tx = tx.clone();
@@ -100,4 +106,10 @@ pub async fn handle_events(
             }
         }
     }
+
+    if let Err(e) = session.save_to_path(save_path) {
+        eprintln!("Failed to write {}: {}", save_path, e);
+    }
+
+    Ok(())
 }

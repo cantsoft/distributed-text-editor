@@ -1,4 +1,4 @@
-use crate::protocol::{LocalOperation, PeerMessage};
+use crate::protocol::{LocalOp, PeerMessage};
 use bytes::{Bytes, BytesMut};
 use prost::Message;
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
@@ -41,8 +41,8 @@ impl Decoder for PeerMessageCodec {
     }
 }
 
-pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<LocalOperation> {
-    match LocalOperation::decode(bytes) {
+pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<LocalOp> {
+    match LocalOp::decode(bytes) {
         Ok(op) => Some(op),
         Err(e) => {
             eprintln!("Invalid protobuf on stdin: {}", e);
@@ -51,7 +51,7 @@ pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<LocalOperation> {
     }
 }
 
-pub fn encode_protobuf(msg: &LocalOperation) -> Result<Bytes, prost::EncodeError> {
+pub fn encode_protobuf(msg: &LocalOp) -> Result<Bytes, prost::EncodeError> {
     let mut buf = BytesMut::with_capacity(msg.encoded_len());
     msg.encode(&mut buf)?;
     Ok(buf.freeze())

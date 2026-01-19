@@ -236,7 +236,7 @@ async fn handle_connection(
 }
 
 pub async fn send_local_op(
-    op: &protocol::LocalOperation,
+    op: &protocol::LocalOp,
     writer: &mut FramedWrite<tokio::io::Stdout, LengthDelimitedCodec>,
 ) {
     let Ok(bytes) = encode_protobuf(op) else {
