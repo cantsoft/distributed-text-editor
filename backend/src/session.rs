@@ -107,4 +107,16 @@ impl Session {
             }
         }
     }
+
+    pub fn save_binary(&self) -> std::io::Result<Vec<u8>> {
+        self.doc.save_binary()
+    }
+
+    pub fn load_binary(id: u8, data: &[u8]) -> std::io::Result<Self> {
+        let doc = Doc::load_binary(data)?;
+        Ok(Self {
+            doc,
+            this_side: Side::new(id),
+        })
+    }
 }
