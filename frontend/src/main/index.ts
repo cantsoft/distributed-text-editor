@@ -7,7 +7,7 @@ import * as path from "path";
 import * as protobuf from "protobufjs";
 
 let root: protobuf.Root | null = null;
-let LocalOperation: protobuf.Type | null = null;
+let LocalOp: protobuf.Type | null = null;
 let backend: ChildProcessWithoutNullStreams | null = null;
 
 let main_window: BrowserWindow | null = null;
@@ -27,7 +27,7 @@ async function runBackendService() {
   let buffer = Buffer.alloc(0);
 
   root = await protobuf.load("../proto/frames.proto");
-  LocalOperation = root.lookupType("dte.LocalOperation");
+  LocalOp = root.lookupType("dte.LocalOp");
   backend = spawn(path.resolve(__dirname, "../../native/backend")); // args
 
   backend.stdout.on("data", (chunk) => {
@@ -41,7 +41,7 @@ async function runBackendService() {
       buffer = buffer.subarray(4 + msgLen);
 
       try {
-        const message = LocalOperation!.decode(payload);
+        const message = LocalOp!.decode(payload);
         handleMessage(message);
       } catch (e) {
         console.error("Decode error:", e);
@@ -72,14 +72,14 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
     let data = key_data;
     switch (key_data) {
       case "Backspace":
-        message = LocalOperation!.create({
+        message = LocalOp!.create({
           position: cursor_pos,
           remove: {},
         });
       break;
       case "Enter":
         data = "\n";
-        message = LocalOperation!.create({
+        message = LocalOp!.create({
           position: cursor_pos,
           insert: { value: data.codePointAt(0) },
         });
@@ -89,7 +89,7 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
             || key_data.charCodeAt(0) === 32) // space
             && key_data.length == 1
         ) {
-          message = LocalOperation!.create({
+          message = LocalOp!.create({
             position: cursor_pos,
             insert: { value: data.codePointAt(0) },
           });
@@ -99,7 +99,7 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
         console.log("Unhandled user input event");
         return;
     }
-    const payload = LocalOperation?.encode(message!).finish();
+    const payload = LocalOp?.encode(message!).finish();
     const header = Buffer.alloc(4);
     header.writeUInt32BE(payload!.length, 0);
 

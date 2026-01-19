@@ -7,9 +7,9 @@ message LocalInsert {
   uint32 value = 1;
 };
 
-message LocalOperation {
+message LocalOp {
   uint32 position = 1;
-  oneof operation_type {
+  oneof op_type {
     LocalRemove remove = 10;
     LocalInsert insert = 11;
   };
