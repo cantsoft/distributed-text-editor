@@ -1,4 +1,5 @@
-use crate::{state, types};
+use crate::state::NodeKey;
+use crate::types::PeerId;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 use tokio::sync::mpsc;
@@ -10,20 +11,15 @@ pub use generated::*;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PeerBeacon {
-    pub id: types::PeerIdType,
+    pub id: PeerId,
     pub tcp_port: u16,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RemoteOp {
-    RemoteInsert {
-        id: Vec<state::NodeKey>,
-        value: char,
-    },
+    RemoteInsert { id: Vec<NodeKey>, value: char },
 
-    RemoteRemove {
-        char_id: Vec<state::NodeKey>,
-    },
+    RemoteRemove { char_id: Vec<NodeKey> },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,15 +29,15 @@ pub enum PeerMessage {
 
 pub enum NodeEvent {
     PeerDiscovered {
-        id: types::PeerIdType,
+        id: PeerId,
         addr: SocketAddr,
     },
     PeerConnected {
-        id: types::PeerIdType,
+        id: PeerId,
         sender: mpsc::Sender<PeerMessage>,
     },
     PeerDisconnected {
-        id: types::PeerIdType,
+        id: PeerId,
     },
 
     User(LocalOperation),

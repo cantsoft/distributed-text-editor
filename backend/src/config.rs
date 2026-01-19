@@ -1,4 +1,4 @@
-use crate::types::PeerIdType;
+use crate::types::PeerId;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -7,7 +7,7 @@ use std::path::Path;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NodeConfig {
-    pub peer_id: PeerIdType,
+    pub peer_id: PeerId,
     pub tcp_port: u16,
     pub udp_discovery_port: u16,
 }
