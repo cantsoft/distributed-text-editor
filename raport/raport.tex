@@ -1,14 +1,18 @@
 \documentclass[12pt]{article}
 
-\usepackage[margin=1in]{geometry}
-\usepackage{fancyhdr}
 \usepackage{hyperref}
-\usepackage{titlesec}
+\usepackage{graphicx}
+\usepackage[margin=1in]{geometry}
+\usepackage[polish]{babel}
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
 
 % ---- Header & Footer -----------------------------------------
 \fancyhf{}
-\fancyhead[L]{\textit{Distributed Text Editor – Weekly Report}}
+\fancyhead[L]{\textit{Distributed Text Editor}}
 \fancyhead[R]{\today}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
@@ -42,8 +46,8 @@ Implement concurrent text editing on a LAN network with automatic conflict resol
 \subsection{Research}
 
 After a preliminary review of the literature, we identified two primary approaches to collaborative 
-text editing: \href{https://en.wikipedia.org/wiki/Operational_transformation}{Operational Transformation}(OT) 
-and \href{https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type}{Conflict-Free Replicated Data Types}(CRDTs).
+text editing: \href{https://en.wikipedia.org/wiki/Operational_transformation}{Operational Transformation} (OT) 
+and \href{https://en.wikipedia.org/wiki/Conflict-free_replicated_data_type}{Conflict-Free Replicated Data Types} (CRDTs).
 
 Operational Transformation techniques rely on transforming concurrent operations to maintain consistency, 
 while CRDTs achieve convergence through mathematically defined merge operations that are inherently 
@@ -72,7 +76,7 @@ with Tokio, the available examples presented it as a feature-rich, yet intuitive
 The next decision concerned the graphical user interface (GUI). In the case of C++, the natural choice 
 would have been \href{https://www.qt.io}{Qt}. Its advantage lies in keeping the entire codebase in one 
 language. However, Qt doesn't provide enough flexibility to fulfill all of our needs, especially regarding 
-multi-cursor editor support. Furthermore, its internal text data structures wouldn't allow for easy 
+multi-cursor editor support. Furthermore, its internal text data structures would not allow for easy 
 integration with our custom CRDT model, resulting in data duplication and overcomplication of the codebase.
 
 For these reasons, we decided to go with Rust for the core logic and \href{https://react.dev}{React} 
@@ -88,7 +92,7 @@ project.
 We implemented a preliminary version of the GUI consisting of two main components: Taskbar and TextEdit.
 
 The Taskbar handles window controls, providing a draggable area for moving the window around and three 
-buttons for minimizing, maximizing, and closing the window. It also manages the main application menus
+buttons for minimizing, maximizing, and closing the window. It also manages the main application menus 
 by providing a basic menu bar. 
 
 The TextEdit component is currently based on a standard editable HTML <div> element, which enables 
@@ -113,7 +117,7 @@ frontend logic.
 
 The relative simplicity of implementation and flexibility of Logoot\cite{logoot} structures in terms 
 of delete and undo operations led us to adopt this approach. A known disadvantage of this method is 
-the rapid growth of index lengths in certain edge cases (inserting at the beggining of the file). This 
+the rapid growth of index lengths in certain edge cases (inserting at the beginning of the file). This 
 problem has been addressed by an improvement known as LSEQ\cite{lseq}, which we will also try to adapt.
 
 \subsection{Index Generation}
@@ -131,7 +135,7 @@ updates.
 
 We used an n-ary tree structure to represent our document, which is natural for our algorithm. Although 
 its arity can be very high, it is also expected to be sparsely populated. Therefore, we used a BTreeMap 
-to store the children within the vertices of our tree. The key advantage of this approach is it's ability
+to store the children within the vertices of our tree. The key advantage of this approach is its ability 
 to be resized without memory reallocations.
 
 Currently, only the insert operation and the pre-order tree traversal have been implemented to compile 
@@ -150,26 +154,82 @@ to conduct large-scale performance testing on natural language texts.
 \section{Frontend-Backend Integration}
 
 We opted to bind the backend structure directly to the GUI, temporarily bypassing network communication layers. 
-This isolation strategy allows for the verification of core logic without the overhead of distributed system
-complexities,simplifying the debugging process. Consequently, we successfully identified and resolved
+This isolation strategy allows for the verification of core logic without the overhead of distributed system 
+complexities, simplifying the debugging process. Consequently, we successfully identified and resolved 
 a logic error concerning the specific order of character deletion.
 
 \subsection{Data Structure Refinement}
 
-Addressing the aforementioned defect, we decided to simplify the underlying data structure. We transitioned from
+Addressing the aforementioned defect, we decided to simplify the underlying data structure. We transitioned from 
 the explicit n-ary tree nodes to a flat storage model where all tree paths are stored directly in a BTreeMap.
 While this approach is less memory-efficient, we anticipate that the access time complexity remains comparable
 to the previous implementation.
 
-\section{IPC between frontend and backend}
+\section{IPC Between Frontend and Backend}
 
 Because the backend must simultaneously act as both a server and a client, and also communicate with the frontend,
 we decided to create a separate process for it, which would receive and send messages to both the rest of the network
 and the user application. This approach requires implementing inter-process communication. The simplest and relatively
 fast solution is to connect STDIN and STDOUT between the frontend and backend, which we managed to achieve. Currently,
 the backend process is created during user application initialization. To standardize the message structure, we plan 
-to use \href{https://protobuf.dev/}{Protobf}, a widely supported solution for such applications.
+to use \href{https://protobuf.dev/}{Protobuf}, a widely supported solution for such applications.
 
+\subsection{IPC summary}
+
+We finalized the IPC communication between our Rust backend process and Electron (Node.js) frontend process. They're communicating via stdio using custom protobuf frames encoded as raw bytes. Frames contain data related to user actions, such as insertions and deletions, which allows for easy data structure and document state manipulations. We plan to add two more types of frames, that will determine when a user wants to connect or leave the session.
+
+To allow for easy integration with the backend logic, we modified the frontend's behaviour. All of the keyboard events have been overriden and handled explicitly, to stop character insertion before any action has been taken by our backend. That meant that a character gets inserted (or deleted) only when a backend confirms the user action.
+
+
+\section{Networking}
+
+We managed to implement the basics of the networking logic. At first a network configuration is created for each user locally and immediately saved into a config.toml file. This file contains data critical to user identification (\texttt{peer\_id}, \texttt{tcp\_port}, \texttt{udp\_discovery\_port}) and allows for reconnecting to a session:
+\begin{itemize}
+    \item \texttt{peer\_id} - ID of a given user, constant and unique across all users
+    \item \texttt{tcp\_port} - port that will be used to exchange tcp packets containing user action data
+    \item \texttt{discovery\_port} - port that will be used to exchange udp packet during peer discovery
+\end{itemize}
+
+In order to ensure reliable message transmission, we used a model where we search for other peers via UDP, and when we find someone, we connect via TCP. This allows us to use convenient UDP broadcasting and, once a TCP connection is established, guarantees that all packets will arrive and the connection will be stable.
+
+\section{Final Architecture}
+
+The system relies on a separated architecture consisting of a frontend interface and a backend core, which communicate via \textit{Protobuf frames}. The architecture facilitates document synchronization, user interaction, and peer discovery.
+
+Note that the diagram below is illustrative and does not accurately reflect the structures or control flow in the code (Rust is not an object-oriented language, so some of the components listed are simply functions), but rather illustrates the logical relationships between components. This is further justified by the fact that a significant portion of the code is executed asynchronously.
+
+\subsection{Frontend Components}
+The frontend operates within an \textit{Electron.js (Browser Context)} environment, handling user interaction and display updates:
+\begin{itemize}
+    \item \textit{React.js (GUI):} Accepts an \textit{Interaction} from the \textit{User} and passes \textit{User input} to the Electron layer. It receives \textit{Document updates} to render the current state.
+    \item \textit{Electron.js:} Bridges the GUI and the backend. It sends user input as a \textit{Protobuf frame} to the backend and receives updates from the local \textit{IPC listener}.
+    \item \textit{IPC listener:} Listens for incoming \textit{Protobuf frames} from the backend and decodes them. It performs \textit{Document updates} via the Electron context using callbacks.
+\end{itemize}
+
+\subsection{Backend Core and Storage}
+The backend processes operations and manages persistent storage:
+\begin{itemize}
+    \item \textit{STDIN listener:} Acts as the entry point for the frontend, receiving \textit{Protobuf frames} and forwarding them (\textit{User operations}) to the Event handler.
+    \item \textit{Event handler:} The central coordinator. It processes user operations, passing \textit{Document operations} to the Session, and pushes \textit{Protobuf frames} back to the frontend. Note that this also synchronizes other code fragments (e.g., UDP discovery sends found peer IDs here, and this is where TCP handling is initiated).
+    \item \textit{Session:} Manages the \textit{Document state} by updating the \texttt{Doc} structure. It interacts with the Event handler and is responsible for persisting state data to the local \textit{File system}.
+\end{itemize}
+
+\subsection{Backend Networking}
+The networking subsystem handles peer-to-peer synchronization and peer discovery over the \textit{Network}:
+\begin{itemize}
+    \item \textit{TCP connection handler:} This component is the primary networking controller. It exchanges \textit{Synchronization operations} with the Event handler and manages \textit{Connection requests \& messages} with the Network. It can be utilized by both the listener and discovery services.
+    \item \textit{UDP discovery service:} Responsible for finding peers. It broadcasts and receives \textit{IP broadcast} packets over the Network. Upon locating a peer, it initiates the TCP connection handler on \textit{Found peer IDs}.
+    \item \textit{TCP listener:} Monitors the Network for incoming traffic. When it receives a \textit{Connection request}, it initiates the TCP connection handler to establish communication.
+\end{itemize}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.75\linewidth]{dte.png}
+    \caption{Architecture Diagram}
+    \label{fig:architecture}
+\end{figure}
+
+\newpage
 \begin{thebibliography}{9}
 
 \bibitem{logoot}
@@ -185,5 +245,6 @@ In \textit{Proceedings of the 2013 ACM Symposium on Document Engineering}, 37--4
 \href{https://doi.org/10.1145/2494266.2494278}{doi:10.1145/2494266.2494278}.
 
 \end{thebibliography}
+
 
 \end{document}
