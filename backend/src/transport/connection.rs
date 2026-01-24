@@ -22,8 +22,8 @@ pub async fn run_stdin_listener(tx: PacketSender, token: CancellationToken) -> s
         maybe_frame = framed.next() => {
             match maybe_frame {
                 Some(Ok(bytes)) => {
-                    if let Some(op) = try_decode_op(bytes) {
-                        if let Err(e) = tx.send(protocol::NodeEvent::User(op)).await {
+                    if let Some(cmd) = try_decode_op(bytes) {
+                        if let Err(e) = tx.send(protocol::NodeEvent::Local(cmd)).await {
                             return Err(std::io::Error::new(ErrorKind::BrokenPipe, e));
                         }
                     }

@@ -40,7 +40,7 @@ pub enum NodeEvent {
         id: PeerId,
     },
 
-    User(LocalOp),
+    Local(LocalCommand),
 
     Network(PeerMessage),
 }

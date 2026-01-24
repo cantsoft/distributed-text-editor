@@ -27,10 +27,8 @@ impl Session {
 
     pub fn handle_local_op(&mut self, op: protocol::LocalOp) -> Option<protocol::RemoteOp> {
         let ret = match op.op_type {
-            Some(protocol::local_op::OpType::Insert(insert)) => {
-                self.apply_insert(op.position, insert)
-            }
-            Some(protocol::local_op::OpType::Remove(_)) => self.apply_remove(op.position),
+            Some(protocol::local_op::OpType::In(insert)) => self.apply_insert(op.position, insert),
+            Some(protocol::local_op::OpType::Rm(_)) => self.apply_remove(op.position),
             None => None,
         };
         eprintln!("Pos: {}", op.position);
@@ -47,12 +45,13 @@ impl Session {
                         eprintln!("Error while inserting character: {}", e);
                     }
                     let pos = self.doc.get_position(key.clone());
-                    protocol::LocalOp {
-                        position: pos as u32,
-                        op_type: Some(protocol::local_op::OpType::Insert(protocol::LocalInsert {
-                            value: value as u32,
-                        })),
-                    }
+                    // protocol::LocalOp {
+                    //     position: pos as u32,
+                    //     op_type: Some(protocol::local_op::OpType::Insert(protocol {
+                    //         value: value as u32,
+                    //     })),
+                    // }
+                    todo!()
                 }
                 protocol::RemoteOp::RemoteRemove { char_id: key } => {
                     let key: Rc<[NodeKey]> = key.into();
@@ -60,10 +59,11 @@ impl Session {
                     if let Err(e) = self.doc.remove_id(key.clone()) {
                         eprintln!("Error while deleting character: {}", e);
                     }
-                    protocol::LocalOp {
-                        position: pos as u32,
-                        op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
-                    }
+                    todo!()
+                    // protocol::LocalOp {
+                    //     position: pos as u32,
+                    //     op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
+                    // }
                 }
             },
         }

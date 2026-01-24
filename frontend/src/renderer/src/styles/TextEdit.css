@@ -27,6 +27,8 @@ div.text-field {
   caret-color: var(--ev-c-text-2);
 
   font-size: 30px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 ::selection {

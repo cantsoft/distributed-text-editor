@@ -1,16 +1,28 @@
 syntax = "proto3";
 package dte;
 
-message LocalRemove {};
+message LocalCommand{
+  oneof variant {
+    LocalOp op = 1;
+    SaveDoc s = 2;
+    CloseApp c = 3;
+  }
+}
+
+message SaveDoc {}
+
+message CloseApp {}
+
+message LocalOp {
+  uint32 position = 1;
+  oneof op_type {
+    LocalRemove rm = 10;
+    LocalInsert in = 11;
+  };
+};
 
 message LocalInsert {
   uint32 value = 1;
 };
 
-message LocalOp {
-  uint32 position = 1;
-  oneof op_type {
-    LocalRemove remove = 10;
-    LocalInsert insert = 11;
-  };
-};
+message LocalRemove {};

@@ -1,5 +1,6 @@
+use crate::session::Session;
 use crate::types::PeerId;
-use crate::{config, protocol, select_loop, session, transport};
+use crate::{config, protocol, select_loop, transport};
 use std::collections::HashMap;
 use tokio::sync::mpsc;
 use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
@@ -53,7 +54,7 @@ async fn handle_events(
 ) -> std::io::Result<()> {
     let save_path = "./native/doc.bin";
     let stdout = tokio::io::stdout();
-    let mut session = session::Session::from(my_id, save_path);
+    let mut session = Session::from(my_id, save_path);
     let mut writer = FramedWrite::new(stdout, LengthDelimitedCodec::new());
     let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>> = HashMap::new();
 
@@ -83,21 +84,19 @@ async fn handle_events(
                 NodeEvent::PeerDisconnected { id } => {
                     peers.remove(&id);
                 }
-                NodeEvent::User(op) => {
-                    if let Some(remote_op) = session.handle_local_op(op) {
-                        transport::send_local_op(&op, &mut writer).await;
-                        for (peer_id, tx) in peers.iter() {
-                            let tx = tx.clone();
-                            let msg = protocol::PeerMessage::SyncOp(remote_op.clone());
-                            eprintln!("Sending peer message: {:?}", msg);
-                            let peer_id = *peer_id;
-                            tokio::spawn(async move {
-                                if let Err(_) = tx.send(msg).await {
-                                    eprintln!("Failed to send to peer {}, channel closed", peer_id);
-                                }
-                            });
-                        }
+                NodeEvent::Local(protocol::LocalCommand{variant}) => {
+                    match variant.unwrap() {
+                        protocol::local_command::Variant::Op(local_op) => {
+                            handle_local_op(&mut session, local_op, &peers, &mut writer).await;
+                        },
+                        protocol::local_command::Variant::S(_) => {
+                            todo!();
+                        },
+                        protocol::local_command::Variant::C(_) => {
+                            token.cancel();
+                        },
                     }
+
                 }
                 NodeEvent::Network(msg) => {
                     let local_op = session.handle_network(msg);
@@ -112,4 +111,27 @@ async fn handle_events(
     }
 
     Ok(())
+}
+
+async fn handle_local_op(
+    session: &mut Session,
+    local_op: protocol::LocalOp,
+    peers: &HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>>,
+    writer: &mut FramedWrite<tokio::io::Stdout, LengthDelimitedCodec>,
+) {
+    if let Some(remote_op) = session.handle_local_op(local_op.clone()) {
+        transport::send_local_op(&local_op, writer).await;
+
+        for (peer_id, tx) in peers.iter() {
+            let tx = tx.clone();
+            let msg = protocol::PeerMessage::SyncOp(remote_op.clone());
+            let peer_id = *peer_id;
+
+            tokio::spawn(async move {
+                if let Err(_) = tx.send(msg).await {
+                    eprintln!("Failed to send to peer {}, channel closed", peer_id);
+                }
+            });
+        }
+    }
 }

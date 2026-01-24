@@ -4,4 +4,4 @@ pub type Timestamp = u64;
 pub const MIN_POSITION_DIGIT: Digit = 0;
 pub const MAX_POSITION_DIGIT: Digit = u32::MAX;
 pub const RESERVED_PEER: PeerId = 0;
-pub const DEFAULT_BOUNDARY: Digit = 16;
+pub const DEFAULT_BOUNDARY: Digit = 128;
