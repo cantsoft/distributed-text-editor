@@ -24,6 +24,6 @@ async fn main() {
         std::process::exit(2);
     }
 
-    println!("Service stopped gracefully.");
+    eprintln!("Service stopped gracefully.");
     std::process::exit(0);
 }

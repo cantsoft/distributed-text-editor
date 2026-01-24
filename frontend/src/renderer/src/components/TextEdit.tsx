@@ -8,9 +8,8 @@ export default function TextEdit(): React.JSX.Element {
   const pending_inserts = useRef(0);
 
   useEffect(() => {
-    if (canvas_ref.current === null || edit_ref.current === null) {
-      return;
-    }
+    if (canvas_ref.current === null 
+      || edit_ref.current === null) { return; }
 
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);
@@ -59,6 +58,7 @@ export default function TextEdit(): React.JSX.Element {
     };
 
     const insertHandler = (position: number, char: string): void => {
+
       const el = edit_ref.current!;
       const textNode = ensureStructure(el);
 
@@ -85,9 +85,9 @@ export default function TextEdit(): React.JSX.Element {
     };
 
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && ["c", "a"].includes(event.key)) {
-        return;
-      }
+      if ((event.ctrlKey || event.metaKey)
+        && ["c", "a"].includes(event.key)
+      ) { console.error("Unhandled user input"); return; }
 
       if (event.key.startsWith("Arrow")) {
         pending_inserts.current = 0;
@@ -101,14 +101,16 @@ export default function TextEdit(): React.JSX.Element {
       if (isBackspace || isEnter || isChar) {
         if (isChar && !isEnter && !isSupportedChar(event.key)) {
           event.preventDefault();
+          console.log("Unsupported user input");
           return;
         }
 
         const selection = document.getSelection();
-        if (!selection || selection.rangeCount === 0) return;
+        if (!selection || selection.rangeCount === 0) { return; }
 
         if (!selection.isCollapsed) {
           event.preventDefault();
+          console.error("Selection is not supported");          
           return;
         }
 
@@ -153,7 +155,7 @@ export default function TextEdit(): React.JSX.Element {
 
   return (
     <>
-      <canvas ref={canvas_ref} className="glslCanvas"/>
+      <canvas ref={canvas_ref} className="glslCanvas" />
       <div
         ref={edit_ref}
         className="text-field"

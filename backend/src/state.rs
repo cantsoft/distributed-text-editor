@@ -152,8 +152,9 @@ impl Doc {
         absolute_position: usize,
     ) -> Result<Rc<[NodeKey]>, &'static str> {
         if absolute_position == 0 {
-            return Err("Can't remove at position 0");
+            return Err("Can't remove outside of document bounds");
         }
+
         let id = self
             .id_list
             .keys()
