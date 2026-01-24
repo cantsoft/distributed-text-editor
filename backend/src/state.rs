@@ -111,9 +111,23 @@ impl Doc {
     }
 
     pub fn collect_string(&self) -> String {
-        // eprintln!("eos {:?}", self.id_list.first_key_value());
-        // eprintln!("bos {:?}", self.id_list.last_key_value());
-        self.id_list.values().filter_map(|ch| *ch).collect()
+        let mut s = String::new();
+        if self
+            .id_list
+            .first_key_value()
+            .is_none_or(|(_, v)| v.is_none())
+        {
+            s.push_str("<BOS>");
+        }
+        s.extend(self.id_list.values().filter_map(|ch| *ch));
+        if self
+            .id_list
+            .last_key_value()
+            .is_none_or(|(_, v)| v.is_none())
+        {
+            s.push_str("<EOS>");
+        }
+        s
     }
 
     pub fn insert_absolute(
@@ -175,7 +189,7 @@ impl Doc {
             .unwrap_or_default();
         let val = 1 + rng.random_range(0..step);
         if !self.strategy.contains_key(&depth) {
-            self.strategy.insert(depth, false);
+            self.strategy.insert(depth, depth % 2 == 1);
         }
         let digits = if self.strategy[&depth] {
             (&p_pref + val).to_u32_digits().1

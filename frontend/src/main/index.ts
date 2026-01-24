@@ -59,14 +59,7 @@ async function runBackendService() {
   });
 }
 
-function isAlphaNumeric(str): boolean {
-  const code = str.charCodeAt(0);
-  return (code > 47 && code < 58) || // numeric (0-9)
-        (code > 64 && code < 91) || // upper alpha (A-Z)
-        (code > 96 && code < 123); // lower alpha (a-z)
-};
-
-async function onKeyDown(key_data, cursor_pos): Promise<void> {
+async function onKeyDown(key_data: string, cursor_pos: number): Promise<void> {
   let message: protobuf.Message<{}> | null = null;
   try {
     let data = key_data;
@@ -76,29 +69,34 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
           position: cursor_pos,
           remove: {},
         });
-      break;
+        break;
       case "Enter":
         data = "\n";
         message = LocalOp!.create({
           position: cursor_pos,
           insert: { value: data.codePointAt(0) },
         });
-      break;
+        break;
       default:
-        if ((isAlphaNumeric(key_data)
-            || key_data.charCodeAt(0) === 32) // space
-            && key_data.length == 1
+        const code = key_data.codePointAt(0);
+
+        if (
+          key_data.length === 1 &&
+          code !== undefined &&
+          code >= 32 && 
+          code <= 126
         ) {
           message = LocalOp!.create({
             position: cursor_pos,
-            insert: { value: data.codePointAt(0) },
+            insert: { value: code },
           });
           break;
         }
 
-        console.log("Unhandled user input event");
+        console.log("Unhandled user input event:", key_data);
         return;
     }
+
     const payload = LocalOp?.encode(message!).finish();
     const header = Buffer.alloc(4);
     header.writeUInt32BE(payload!.length, 0);
@@ -106,7 +104,9 @@ async function onKeyDown(key_data, cursor_pos): Promise<void> {
     if (backend && backend.stdin) {
       backend.stdin.write(Buffer.concat([header, payload]));
     }
-  } catch (e) { console.error("Encode/Send error:", e); }
+  } catch (e) {
+    console.error("Encode/Send error:", e);
+  }
 }
 
 function createWindow(): void {
@@ -174,5 +174,6 @@ app.whenReady().then(() => {
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
+  
   if (process.platform !== 'darwin') { app.quit(); }
 });
