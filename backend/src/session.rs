@@ -25,7 +25,7 @@ impl Session {
         Self { doc, local_id: id }
     }
 
-    pub fn handle_local_op(&mut self, op: protocol::LocalOp) -> Option<protocol::RemoteOp> {
+    pub fn apply_local_op(&mut self, op: protocol::LocalOp) -> Option<protocol::RemoteOp> {
         let ret = match op.op_type {
             Some(protocol::local_op::OpType::In(insert)) => self.apply_insert(op.position, insert),
             Some(protocol::local_op::OpType::Rm(_)) => self.apply_remove(op.position),
@@ -36,7 +36,7 @@ impl Session {
         ret
     }
 
-    pub fn handle_network(&mut self, payload: protocol::PeerMessage) -> protocol::LocalOp {
+    pub fn apply_network_message(&mut self, payload: protocol::PeerMessage) -> protocol::LocalOp {
         match payload {
             protocol::PeerMessage::SyncOp(remote_op) => match remote_op {
                 protocol::RemoteOp::RemoteInsert { id: key, value } => {

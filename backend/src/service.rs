@@ -60,8 +60,7 @@ async fn handle_events(
 
     select_loop! {
         _ = token.cancelled() => {
-            eprintln!("Token canceled");
-            break;
+            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Unknown error occured"));
         }
 
         event = rx.recv() => {
@@ -99,7 +98,7 @@ async fn handle_events(
 
                 }
                 NodeEvent::Network(msg) => {
-                    let local_op = session.handle_network(msg);
+                    let local_op = session.apply_network_message(msg);
                     transport::send_local_op(&local_op, &mut writer).await;
                 }
             }
@@ -119,19 +118,24 @@ async fn handle_local_op(
     peers: &HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>>,
     writer: &mut FramedWrite<tokio::io::Stdout, LengthDelimitedCodec>,
 ) {
-    if let Some(remote_op) = session.handle_local_op(local_op.clone()) {
-        transport::send_local_op(&local_op, writer).await;
+    match session.apply_local_op(local_op.clone()) {
+        Some(remote_op) => {
+            transport::send_local_op(&local_op, writer).await;
 
-        for (peer_id, tx) in peers.iter() {
-            let tx = tx.clone();
-            let msg = protocol::PeerMessage::SyncOp(remote_op.clone());
-            let peer_id = *peer_id;
+            for (peer_id, tx) in peers.iter() {
+                let tx = tx.clone();
+                let msg = protocol::PeerMessage::SyncOp(remote_op.clone());
+                let peer_id = *peer_id;
 
-            tokio::spawn(async move {
-                if let Err(_) = tx.send(msg).await {
-                    eprintln!("Failed to send to peer {}, channel closed", peer_id);
-                }
-            });
-        }
+                tokio::spawn(async move {
+                    if let Err(_) = tx.send(msg).await {
+                        eprintln!("Failed to send to peer {}, channel closed", peer_id);
+                    }
+                });
+            }
+        },
+        None => {
+            panic!("Failed to apply operation");
+        },
     }
 }
