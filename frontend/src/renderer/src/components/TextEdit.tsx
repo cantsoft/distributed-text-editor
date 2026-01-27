@@ -2,6 +2,8 @@ import React, { useEffect, useRef } from "react";
 import GlslCanvas from "glslCanvas";
 import { backdrop_shader } from "@renderer/assets/backdrop_shader";
 
+import "../styles/TextEdit.css";
+
 export default function TextEdit(): React.JSX.Element {
   const canvas_ref = useRef<HTMLCanvasElement | null>(null);
   const edit_ref = useRef<HTMLDivElement | null>(null);

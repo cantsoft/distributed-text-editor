@@ -1,27 +1,8 @@
-import React, { RefObject, useEffect, useRef, useState } from "react";
+import React, { RefObject, useEffect, useRef, useState, useMemo } from "react";
+
+import "../styles/Taskbar.css";
 
 type DropdownOption = {label: string, action: () => void}
-
-const menus = [
-  {
-    label: "File",
-    options: [
-      { label: "New...",      action: () => alert("New...")     },
-      { label: "Open",        action: () => alert("Open")       },
-      { label: "Save",        action: () => alert("Save")       },
-      { label: "Save As...",  action: () => alert("Save As...") },
-      { label: "Exit",        action: window.api.close          }          
-    ]
-  },
-  {
-    label: "Edit",
-    options: [
-      { label: "Undo",  action: () => alert("Undo") },
-      { label: "Redo",  action: () => alert("Redo") }
-    ]
-  },
-];
-
 
 function DropdownMenu({
   ref,
@@ -58,10 +39,22 @@ function DropdownMenu({
   );
 }
 
-
-export default function Taskbar(): React.JSX.Element{
+export default function Taskbar({
+  onSave
+}: {
+  onSave: () => void
+}): React.JSX.Element{
+  
   const [activeMenu, setActiveMenu] = useState<number | null>(null);
   const activeMenuRef = useRef<HTMLDivElement | null>(null);
+  const menus = [{
+    label: "File",
+    options: [
+      { label: "Save As...",  action: onSave            },
+      { label: "Exit",        action: window.api.close  }
+    ]
+  }]
+  
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
