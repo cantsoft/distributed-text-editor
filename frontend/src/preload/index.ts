@@ -6,6 +6,7 @@ const api = {
   minimize: () => ipcRenderer.send("window:minimize"),
   maximize: () => ipcRenderer.send("window:maximize"),
   close: () => ipcRenderer.send("window:close"),
+  save: (filename: string) => ipcRenderer.send("user:save"),
   onUserKeydown: (keyData, cursorPos) => ipcRenderer.send("user:keydown", keyData, cursorPos),
   onRemoveRequest: (callback: (position: number) => void) => { 
     ipcRenderer.on("remove-request", (_e: any, position: number) => callback(position))
