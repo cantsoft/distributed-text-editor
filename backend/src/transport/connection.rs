@@ -94,7 +94,7 @@ pub async fn run_discovery(
                             id: remote_beacon.id,
                             addr: peer_tcp_addr
                         }).await {
-                            return Err(std::io::Error::new(ErrorKind::BrokenPipe, e));
+                            eprintln!("Failed to send PeerDiscovered: {}", e);
                         }
                     }
                 }
@@ -110,7 +110,6 @@ pub async fn run_tcp_listener(
     tx: PacketSender,
     token: CancellationToken,
     tcp_port: u16,
-    my_id: PeerId,
 ) -> std::io::Result<()> {
     let addr_str = format!("0.0.0.0:{}", tcp_port);
     let listener = TcpListener::bind(&addr_str).await?;
@@ -123,11 +122,10 @@ pub async fn run_tcp_listener(
             match accept_result {
                 Ok((stream, addr)) => {
                     eprintln!("New incoming TCP connection from: {}", addr);
-                    let tx_inner = tx.clone();
-                    let token_inner = token.clone();
-                    tokio::spawn(async move {
-                        handle_connection(stream, tx_inner, token_inner, my_id).await;
-                    });
+                    if let Err(e) = tx.send(protocol::NodeEvent::PeerConnection { stream }).await
+                    {
+                        eprintln!("Failed to send PeerConnection: {}", e);
+                    }
                 }
                 Err(e) => eprintln!("TCP accept error: {}", e),
             }
@@ -150,7 +148,7 @@ pub async fn connect_to_peer(
     }
 }
 
-async fn handle_connection(
+pub async fn handle_connection(
     mut stream: TcpStream,
     tx: PacketSender,
     token: CancellationToken,

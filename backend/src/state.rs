@@ -9,7 +9,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 use std::io::Write;
 use std::rc::Rc;
@@ -43,6 +43,7 @@ impl NodeKey {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Doc {
     id_list: BTreeMap<Rc<[NodeKey]>, Option<char>>,
+    cmentary: BTreeSet<Rc<[NodeKey]>>,
     strategy: HashMap<usize, bool>,
     boundary: Digit,
 }
@@ -60,27 +61,20 @@ impl Doc {
         );
         Self {
             id_list: id_list,
-            strategy: HashMap::new(),
+            cmentary: BTreeSet::default(),
+            strategy: HashMap::default(),
             boundary: DEFAULT_BOUNDARY,
         }
     }
 
-    #[cfg(test)]
-    pub(super) fn bos_id(&self) -> Rc<[NodeKey]> {
-        self.id_list
-            .first_key_value()
-            .expect("Error: BOS node missing")
-            .0
-            .clone()
+    pub fn load_bytes(bytes: &[u8]) -> std::io::Result<Self> {
+        let doc = bincode::deserialize(bytes)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        Ok(doc)
     }
 
-    #[cfg(test)]
-    pub(super) fn eos_id(&self) -> Rc<[NodeKey]> {
-        self.id_list
-            .last_key_value()
-            .expect("Error: EOS node missing")
-            .0
-            .clone()
+    pub fn save_bytes(&self) -> std::io::Result<Vec<u8>> {
+        bincode::serialize(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 
     pub fn save_text(&self, path: &str) -> std::io::Result<()> {
@@ -92,17 +86,15 @@ impl Doc {
         Ok(())
     }
 
-    pub fn save_bytes(&self) -> std::io::Result<Vec<u8>> {
-        bincode::serialize(self).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
-    }
-
-    pub fn load_bytes(bytes: &[u8]) -> std::io::Result<Self> {
-        let doc = bincode::deserialize(bytes)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-        Ok(doc)
+    pub fn insert_id(&mut self, id: Rc<[NodeKey]>, data: char) -> Result<(), &'static str> {
+        (!self.id_list.contains_key(&id))
+            .then(|| self.id_list.insert(id, Some(data)))
+            .ok_or("ID already exists")
+            .map(drop)
     }
 
     pub fn remove_id(&mut self, id: Rc<[NodeKey]>) -> Result<(), &'static str> {
+        self.cmentary.insert(id.clone());
         self.id_list.remove(&id).ok_or("id not found").map(drop)
     }
 
@@ -162,17 +154,11 @@ impl Doc {
             .cloned()
             .ok_or("missing position")?;
         self.id_list.remove(&id);
+        self.cmentary.insert(id.clone());
         Ok(id)
     }
 
-    pub fn insert_id(&mut self, id: Rc<[NodeKey]>, data: char) -> Result<(), &'static str> {
-        (!self.id_list.contains_key(&id))
-            .then(|| self.id_list.insert(id, Some(data)))
-            .ok_or("ID already exists")
-            .map(drop)
-    }
-
-    pub(super) fn generate_id(
+    pub(crate) fn generate_id(
         &mut self,
         p: &[NodeKey],
         q: &[NodeKey],
@@ -245,5 +231,23 @@ impl Doc {
             id.push(pos);
         }
         id.into()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn bos_id(&self) -> Rc<[NodeKey]> {
+        self.id_list
+            .first_key_value()
+            .expect("Error: BOS node missing")
+            .0
+            .clone()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn eos_id(&self) -> Rc<[NodeKey]> {
+        self.id_list
+            .last_key_value()
+            .expect("Error: EOS node missing")
+            .0
+            .clone()
     }
 }

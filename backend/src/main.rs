@@ -19,8 +19,8 @@ async fn main() {
         }
     };
 
-    if let Err(e) = service::run(config).await {
-        eprintln!("CRITICAL: Service crashed unexpectedly: {}", e);
+    if let Err(_) = service::run(config).await {
+        eprintln!("CRITICAL: Service crashed unexpectedly");
         std::process::exit(2);
     }
 

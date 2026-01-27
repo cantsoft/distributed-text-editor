@@ -1,4 +1,5 @@
-import { app, shell, BrowserWindow, ipcMain, ProtocolResponse } from 'electron'; import { electronApp, optimizer, is } from '@electron-toolkit/utils';
+import { app, shell, BrowserWindow, ipcMain } from 'electron';
+import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import * as path from "path";
 
@@ -29,16 +30,13 @@ function createWindow(): void {
     if (main_window!.isMaximized()) { main_window!.unmaximize(); }
     else { main_window!.maximize(); }
   });
-  ipcMain.on("user:keydown", (_event: any, key_data: string, cursor_pos: number) => {
-    // console.log(key_data, cursor_pos);
-    onKeyDown(key_data, cursor_pos);
-  });
+  ipcMain.on("user:keydown", (_event: any, key_data: string, cursor_pos: number) => { onKeyDown(key_data, cursor_pos); });
   
   main_window.on('ready-to-show', () => { main_window!.show() });
 
-  if (is.dev) {
-    main_window.webContents.openDevTools();
-  }
+  // if (is.dev) {
+  //   main_window.webContents.openDevTools();
+  // }
 
   main_window.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
