@@ -22,6 +22,7 @@ impl Session {
             }
         };
 
+        let doc = Doc::new(); // override
         Self { doc, local_id: id }
     }
 
@@ -45,13 +46,12 @@ impl Session {
                         eprintln!("Error while inserting character: {}", e);
                     }
                     let pos = self.doc.get_position(key.clone());
-                    // protocol::LocalOp {
-                    //     position: pos as u32,
-                    //     op_type: Some(protocol::local_op::OpType::Insert(protocol {
-                    //         value: value as u32,
-                    //     })),
-                    // }
-                    todo!()
+                    protocol::LocalOp {
+                        position: pos as u32,
+                        op_type: Some(protocol::local_op::OpType::In(protocol::LocalInsert {
+                            value: value as u32,
+                        })),
+                    }
                 }
                 protocol::RemoteOp::RemoteRemove { char_id: key } => {
                     let key: Rc<[NodeKey]> = key.into();
@@ -59,11 +59,10 @@ impl Session {
                     if let Err(e) = self.doc.remove_id(key.clone()) {
                         eprintln!("Error while deleting character: {}", e);
                     }
-                    todo!()
-                    // protocol::LocalOp {
-                    //     position: pos as u32,
-                    //     op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
-                    // }
+                    protocol::LocalOp {
+                        position: pos as u32,
+                        op_type: Some(protocol::local_op::OpType::Rm(protocol::LocalRemove {})),
+                    }
                 }
             },
         }

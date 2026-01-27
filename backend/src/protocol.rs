@@ -32,6 +32,9 @@ pub enum NodeEvent {
         id: PeerId,
         addr: SocketAddr,
     },
+    PeerConnection {
+        stream: tokio::net::TcpStream,
+    },
     PeerConnected {
         id: PeerId,
         sender: mpsc::Sender<PeerMessage>,

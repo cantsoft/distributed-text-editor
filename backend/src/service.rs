@@ -6,7 +6,7 @@ use tokio::sync::mpsc;
 use tokio_util::codec::{FramedWrite, LengthDelimitedCodec};
 use tokio_util::sync::CancellationToken;
 
-pub async fn run(config: config::NodeConfig) -> std::io::Result<()> {
+pub async fn run(config: config::NodeConfig) -> Result<(), ()> {
     let (tx, rx) = mpsc::channel(255);
     let token = CancellationToken::new();
 
@@ -33,10 +33,9 @@ pub async fn run(config: config::NodeConfig) -> std::io::Result<()> {
 
     let tx_tcp = tx.clone();
     let token_tcp = token.clone();
-    let my_id = config.peer_id;
     tokio::spawn(async move {
         if let Err(e) =
-            transport::run_tcp_listener(tx_tcp, token_tcp.clone(), config.tcp_port, my_id).await
+            transport::run_tcp_listener(tx_tcp, token_tcp.clone(), config.tcp_port).await
         {
             eprintln!("TCP Server crashed: {}", e);
             token_tcp.cancel();
@@ -51,16 +50,17 @@ async fn handle_events(
     tx_loopback: mpsc::Sender<protocol::NodeEvent>,
     token: tokio_util::sync::CancellationToken,
     my_id: PeerId,
-) -> std::io::Result<()> {
+) -> Result<(), ()> {
     let save_path = "./native/doc.bin";
-    let stdout = tokio::io::stdout();
     let mut session = Session::from(my_id, save_path);
-    let mut writer = FramedWrite::new(stdout, LengthDelimitedCodec::new());
+    let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
     let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>> = HashMap::new();
 
     select_loop! {
+        'main_loop:
+
         _ = token.cancelled() => {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "Unknown error occured"));
+            return Err(());
         }
 
         event = rx.recv() => {
@@ -77,6 +77,13 @@ async fn handle_events(
                         tokio::spawn(transport::connect_to_peer(addr, tx, tok, my_id));
                     }
                 }
+                NodeEvent::PeerConnection { stream } => {
+                    let tx_connect = tx_loopback.clone();
+                    let token_connect = token.clone();
+                    tokio::spawn(async move {
+                        transport::handle_connection(stream, tx_connect, token_connect, my_id).await;
+                    });
+                },
                 NodeEvent::PeerConnected { id, sender } => {
                     peers.insert(id, sender);
                 }
@@ -93,6 +100,7 @@ async fn handle_events(
                         },
                         protocol::local_command::Variant::C(_) => {
                             token.cancel();
+                            break 'main_loop;
                         },
                     }
 
@@ -133,9 +141,9 @@ async fn handle_local_op(
                     }
                 });
             }
-        },
+        }
         None => {
             panic!("Failed to apply operation");
-        },
+        }
     }
 }
