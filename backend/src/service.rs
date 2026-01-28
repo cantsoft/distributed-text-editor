@@ -54,7 +54,7 @@ async fn handle_events(
     let save_path = "./native/doc.bin";
     let mut session = Session::from(my_id, save_path);
     let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
-    let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>> = HashMap::new();
+    let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerSyncOp>> = HashMap::new();
 
     select_loop! {
         'main_loop:
@@ -74,14 +74,16 @@ async fn handle_events(
                     if !peers.contains_key(&id) && my_id < id {
                         let tx = tx_loopback.clone();
                         let tok = token.clone();
-                        tokio::spawn(transport::connect_to_peer(addr, tx, tok, my_id));
+                        let doc_snapshot = session.get_doc_snapshot();
+                        tokio::spawn(transport::connect_to_peer(addr, tx, tok,doc_snapshot, my_id));
                     }
                 }
                 NodeEvent::PeerConnection { stream } => {
                     let tx_connect = tx_loopback.clone();
                     let token_connect = token.clone();
+                    let doc_snapshot = session.get_doc_snapshot();
                     tokio::spawn(async move {
-                        transport::handle_connection(stream, tx_connect, token_connect, my_id).await;
+                        transport::handle_connection(stream, tx_connect, token_connect, doc_snapshot, my_id).await;
                     });
                 },
                 NodeEvent::PeerConnected { id, sender } => {
@@ -123,7 +125,7 @@ async fn handle_events(
 async fn handle_local_op(
     session: &mut Session,
     local_op: protocol::LocalOp,
-    peers: &HashMap<PeerId, mpsc::Sender<protocol::PeerMessage>>,
+    peers: &HashMap<PeerId, mpsc::Sender<protocol::PeerSyncOp>>,
     writer: &mut FramedWrite<tokio::io::Stdout, LengthDelimitedCodec>,
 ) {
     match session.apply_local_op(local_op.clone()) {
@@ -132,7 +134,7 @@ async fn handle_local_op(
 
             for (peer_id, tx) in peers.iter() {
                 let tx = tx.clone();
-                let msg = protocol::PeerMessage::SyncOp(remote_op.clone());
+                let msg = remote_op.clone();
                 let peer_id = *peer_id;
 
                 tokio::spawn(async move {
