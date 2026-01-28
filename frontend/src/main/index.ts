@@ -3,7 +3,12 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import icon from '../../resources/icon.png?asset';
 import * as path from "path";
 
-import { runBackendService, onKeyDown, updateBackendWindowReference, onExit } from './ipc'
+import {
+  runBackendService,
+  onKeyDown,
+  updateBackendWindowReference,
+  onExit,
+} from "./ipc";
 
 let main_window: BrowserWindow | null = null;
 

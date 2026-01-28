@@ -1,4 +1,4 @@
-use crate::state::NodeKey;
+use crate::state::{Doc, NodeKey};
 use crate::types::PeerId;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
@@ -9,36 +9,42 @@ mod generated {
 }
 pub use generated::*;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PeerBeacon {
     pub id: PeerId,
     pub tcp_port: u16,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PeerSyncOp {
-    RemoteInsert { id: Vec<NodeKey>, value: u8 },
+pub enum NodeEvent {
+    Net(PeerEvent),
 
-    RemoteRemove { char_id: Vec<NodeKey> },
+    Local(ClientCommand),
+
+    Sync(PeerSyncOp),
 }
 
-pub enum NodeEvent {
-    PeerDiscovered {
+pub enum PeerEvent {
+    Discovered {
         id: PeerId,
         addr: SocketAddr,
     },
-    PeerConnection {
+    Connection {
         stream: tokio::net::TcpStream,
     },
-    PeerConnected {
+    Connected {
         id: PeerId,
         sender: mpsc::Sender<PeerSyncOp>,
     },
-    PeerDisconnected {
+    Disconnected {
         id: PeerId,
     },
+}
 
-    Local(LocalCommand),
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum PeerSyncOp {
+    Insert { char_id: Vec<NodeKey>, value: u8 },
 
-    Network(PeerSyncOp),
+    Remove { char_id: Vec<NodeKey> },
+
+    FullSync { state: Doc },
 }

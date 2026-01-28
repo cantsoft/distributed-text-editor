@@ -31,6 +31,7 @@ dependencies = [
  "bytes",
  "futures",
  "im",
+ "itertools",
  "num-bigint",
  "num-traits",
  "prost 0.14.1",

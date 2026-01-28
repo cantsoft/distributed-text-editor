@@ -6,40 +6,61 @@ import * as protobuf from "protobufjs";
 /**************************************************************************************************/
 
 let root: protobuf.Root | null = null;
-let LocalOpFrame: protobuf.Type | null = null;
-let LocalCommandFrame: protobuf.Type | null = null;
+let ServerEventFrame: protobuf.Type | null = null;
+let ClientCommandFrame: protobuf.Type | null = null;
 
-let main_window: BrowserWindow | null = null
+let main_window: BrowserWindow | null = null;
 let backend: ChildProcessWithoutNullStreams | null = null;
+
+/**************************************************************************************************/
+
+
+interface ServerEvent {
+  op?: LocalOp | null;
+  state?: FullState | null;
+}
+
+interface FullState {
+  content: Uint8Array;
+}
 
 interface LocalOp {
   position: number;
-  in?: { value: number } | null;
-  rm?: {} | null;
+  insert?: { value: number } | null;
+  remove?: object | null;
 }
 
 /**************************************************************************************************/
 
-function handleMessage(message: LocalOp) {
-  if (message.rm) {
-    main_window!.webContents.send(
-      "remove-request", 
-      message.position!
-    );
-  } else if (message.in) {
-    main_window!.webContents.send(
-      "insert-request",
-      message.position === undefined ? 0 : message.position,
-      String.fromCharCode(message.in.value)
-    );
-  } else { console.error("Unknown message type"); }
+function handleServerEvent(event: ServerEvent): void {
+  if (event.state) {
+    const text = new TextDecoder("utf-8").decode(event.state.content);
+    main_window!.webContents.send("full-sync-request", text);
+    return;
+  }
+  if (event.op) {
+    const op = event.op;
+    const pos = op.position ?? 0;
+    if (op.remove) {
+      main_window!.webContents.send("remove-request", pos);
+    } else if (op.insert) {
+      main_window!.webContents.send(
+        "insert-request",
+        pos,
+        String.fromCharCode(op.insert.value),
+      );
+    }
+    return;
+  }
+
+  console.error("Unknown ServerEvent variant received:", event);
 }
 
 /**************************************************************************************************/
 
-function sendLocalCommand(message: protobuf.Message<{}>) {
+function sendLocalCommand(message: protobuf.Message<object>): void {
   try {
-    const payload = LocalCommandFrame!.encode(message!).finish();
+    const payload = ClientCommandFrame!.encode(message!).finish();
     const header = Buffer.alloc(4);
     header.writeUInt32BE(payload!.length, 0);
     if (backend && backend.stdin) {
@@ -51,17 +72,19 @@ function sendLocalCommand(message: protobuf.Message<{}>) {
 /**************************************************************************************************/
 
 export function updateBackendWindowReference(
-  in_main_window: BrowserWindow
-) { main_window = in_main_window; }
+  in_main_window: BrowserWindow,
+): void {
+  main_window = in_main_window;
+}
 
 /**************************************************************************************************/
 
-export async function runBackendService() {
+export async function runBackendService(): Promise<void> {
   let buffer = Buffer.alloc(0);
 
   root = await protobuf.load("../proto/frames.proto");
-  LocalOpFrame = root.lookupType("dte.LocalOp");
-  LocalCommandFrame = root.lookupType("dte.LocalCommand");
+  ServerEventFrame = root.lookupType("dte.ServerEvent");
+  ClientCommandFrame = root.lookupType("dte.ClientCommand");
   backend = spawn(path.resolve(__dirname, "../../native/backend"));
 
   backend.stdout.on("data", (chunk) => {
@@ -75,8 +98,9 @@ export async function runBackendService() {
       buffer = buffer.subarray(4 + msgLen);
 
       try {
-        const message = LocalOpFrame!.decode(payload);
-        handleMessage(LocalOpFrame!.toObject(message) as LocalOp);
+        const message = ServerEventFrame!.decode(payload);
+        console.log(message);
+        handleServerEvent(ServerEventFrame!.toObject(message) as ServerEvent);
       } catch (e) {
         console.error("Decode error:", e);
       }
@@ -95,44 +119,47 @@ export async function runBackendService() {
 
 /**************************************************************************************************/
 
-export async function onKeyDown(key_data: string, cursor_pos: number): Promise<void> {
-  let message: protobuf.Message<{}> | null = null;
+export async function onKeyDown(
+  key_data: string,
+  cursor_pos: number,
+): Promise<void> {
+  let message: protobuf.Message<object> | null = null;
   let data = key_data;
   switch (key_data) {
     case "Backspace":
       if (cursor_pos <= 0) { return; }
-      message = LocalCommandFrame!.create({
-        op: { position: cursor_pos, rm: {} }
+      message = ClientCommandFrame!.create({
+        edit: { position: cursor_pos, remove: {} },
       });
       break;
     case "Enter":
       data = "\n";
-      message = LocalCommandFrame!.create({
-        op: { position: cursor_pos, in: { value: data.codePointAt(0) } }
+      message = ClientCommandFrame!.create({
+        edit: { position: cursor_pos, insert: { value: data.codePointAt(0) } },
       });
       break;
-    default:
+    default: {
       const code = key_data.codePointAt(0);
-        message = LocalCommandFrame!.create({
-          op: { position: cursor_pos, in: { value: code } }
-        });
-        break;
+      message = ClientCommandFrame!.create({
+        edit: { position: cursor_pos, insert: { value: code } },
+      });
+      break;
+    }
   }
 
   sendLocalCommand(message);
-
 }
 
 /**************************************************************************************************/
 
-export function onSave() {
-  sendLocalCommand(LocalCommandFrame!.create({ s: {} }));
+export function onSave(): void {
+  sendLocalCommand(ClientCommandFrame!.create({ save: {} }));
 }
 
 /**************************************************************************************************/
 
-export function onExit() {
-  sendLocalCommand(LocalCommandFrame!.create({ c: {} }));
+export function onExit(): void {
+  sendLocalCommand(ClientCommandFrame!.create({ close: {} }));
 }
 
 /**************************************************************************************************/

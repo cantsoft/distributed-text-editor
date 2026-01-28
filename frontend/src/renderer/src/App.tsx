@@ -12,8 +12,11 @@ export default function App(): React.JSX.Element {
 
   return (
     <>
-      <FileDialog active={ dialog_active } onExit={ () => setDialogActive(false) }/>
-      <Taskbar onSave={ () => setDialogActive(true) }/>
+      <FileDialog
+        active={dialog_active}
+        onExit={() => setDialogActive(false)}
+      />
+      <Taskbar onSave={() => setDialogActive(true)} />
       <TextEdit/>
     </>
   );
