@@ -16,15 +16,10 @@ pub struct PeerBeacon {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum RemoteOp {
-    RemoteInsert { id: Vec<NodeKey>, value: char },
+pub enum PeerSyncOp {
+    RemoteInsert { id: Vec<NodeKey>, value: u8 },
 
     RemoteRemove { char_id: Vec<NodeKey> },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PeerMessage {
-    SyncOp(RemoteOp),
 }
 
 pub enum NodeEvent {
@@ -37,7 +32,7 @@ pub enum NodeEvent {
     },
     PeerConnected {
         id: PeerId,
-        sender: mpsc::Sender<PeerMessage>,
+        sender: mpsc::Sender<PeerSyncOp>,
     },
     PeerDisconnected {
         id: PeerId,
@@ -45,5 +40,5 @@ pub enum NodeEvent {
 
     Local(LocalCommand),
 
-    Network(PeerMessage),
+    Network(PeerSyncOp),
 }

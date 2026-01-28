@@ -1,6 +1,6 @@
 use super::codec::{PeerMessageCodec, encode_protobuf, try_decode_op};
 use crate::types::PeerId;
-use crate::{config, protocol, select_loop};
+use crate::{config, protocol, select_loop, state};
 use futures::{SinkExt, StreamExt};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::io::ErrorKind;
@@ -137,12 +137,13 @@ pub async fn connect_to_peer(
     addr: std::net::SocketAddr,
     tx: PacketSender,
     token: CancellationToken,
+    doc_state: state::Doc,
     my_id: PeerId,
 ) {
     eprintln!("Connecting to peer at {}", addr);
     match TcpStream::connect(addr).await {
         Ok(stream) => {
-            handle_connection(stream, tx, token, my_id).await;
+            handle_connection(stream, tx, token, doc_state, my_id).await;
         }
         Err(e) => eprintln!("Failed to connect to {}: {}", addr, e),
     }
@@ -152,6 +153,7 @@ pub async fn handle_connection(
     mut stream: TcpStream,
     tx: PacketSender,
     token: CancellationToken,
+    doc_state: state::Doc,
     my_id: PeerId,
 ) {
     if let Err(e) = stream.write_all(&[my_id]).await {
@@ -171,7 +173,7 @@ pub async fn handle_connection(
     let mut framed_read = FramedRead::new(read_half, PeerMessageCodec::new());
     let mut framed_write = FramedWrite::new(write_half, PeerMessageCodec::new());
 
-    let (tx_peer, mut rx_peer) = mpsc::channel::<protocol::PeerMessage>(255);
+    let (tx_peer, mut rx_peer) = mpsc::channel::<protocol::PeerSyncOp>(255);
 
     if let Err(e) = tx
         .send(protocol::NodeEvent::PeerConnected {

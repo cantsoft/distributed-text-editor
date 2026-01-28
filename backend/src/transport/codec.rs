@@ -1,4 +1,4 @@
-use crate::protocol::{LocalCommand, LocalOp, PeerMessage};
+use crate::protocol::{LocalCommand, LocalOp, PeerSyncOp};
 use bytes::{Bytes, BytesMut};
 use prost::Message;
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
@@ -15,10 +15,10 @@ impl PeerMessageCodec {
     }
 }
 
-impl Encoder<PeerMessage> for PeerMessageCodec {
+impl Encoder<PeerSyncOp> for PeerMessageCodec {
     type Error = std::io::Error;
 
-    fn encode(&mut self, item: PeerMessage, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: PeerSyncOp, dst: &mut BytesMut) -> Result<(), Self::Error> {
         let data = bincode::serialize(&item)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         self.delegate.encode(Bytes::from(data), dst)
@@ -26,7 +26,7 @@ impl Encoder<PeerMessage> for PeerMessageCodec {
 }
 
 impl Decoder for PeerMessageCodec {
-    type Item = PeerMessage;
+    type Item = PeerSyncOp;
     type Error = std::io::Error;
 
     fn decode(&mut self, src: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {

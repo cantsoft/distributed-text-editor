@@ -1,6 +1,6 @@
 use crate::types::{
-    DEFAULT_BOUNDARY, Digit, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, PeerId, RESERVED_PEER,
-    Timestamp,
+    BOS_CHAR, DEFAULT_BOUNDARY, Digit, EOS_CHAR, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, PeerId,
+    RESERVED_PEER, Timestamp,
 };
 use bincode;
 use num_bigint::{BigInt, Sign};
@@ -8,11 +8,11 @@ use num_traits::One;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::cmp::min;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::cmp::{self, min};
+use std::collections::{BTreeMap, HashSet};
 use std::fs::File;
 use std::io::Write;
-use std::rc::Rc;
+use std::sync::Arc;
 
 const SEED: [u8; 32] = [0; 32];
 
@@ -23,7 +23,7 @@ pub fn now_millis() -> u64 {
         .as_millis() as u64
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct NodeKey {
     digit: Digit,
     peer_id: PeerId,
@@ -40,30 +40,26 @@ impl NodeKey {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Doc {
-    id_list: BTreeMap<Rc<[NodeKey]>, Option<char>>,
-    cmentary: BTreeSet<Rc<[NodeKey]>>,
-    strategy: HashMap<usize, bool>,
-    boundary: Digit,
+    id_list: im::Vector<(Arc<[NodeKey]>, u8)>,
+    cmentary: HashSet<Arc<[NodeKey]>>,
 }
 
 impl Doc {
     pub fn new() -> Self {
-        let mut id_list = BTreeMap::default();
-        id_list.insert(
-            Rc::from(vec![NodeKey::new(MIN_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
-            None,
-        );
-        id_list.insert(
-            Rc::from(vec![NodeKey::new(MAX_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
-            None,
-        );
+        let mut id_list = im::Vector::new();
+        id_list.push_back((
+            Arc::from(vec![NodeKey::new(MIN_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
+            BOS_CHAR,
+        ));
+        id_list.push_back((
+            Arc::from(vec![NodeKey::new(MAX_POSITION_DIGIT, RESERVED_PEER, 0)].into_boxed_slice()),
+            EOS_CHAR,
+        ));
         Self {
             id_list: id_list,
-            cmentary: BTreeSet::default(),
-            strategy: HashMap::default(),
-            boundary: DEFAULT_BOUNDARY,
+            cmentary: HashSet::default(),
         }
     }
 
@@ -86,74 +82,100 @@ impl Doc {
         Ok(())
     }
 
-    pub fn insert_id(&mut self, id: Rc<[NodeKey]>, data: char) -> Result<(), &'static str> {
-        (!self.id_list.contains_key(&id))
-            .then(|| self.id_list.insert(id, Some(data)))
-            .ok_or("ID already exists")
-            .map(drop)
-    }
-
-    pub fn remove_id(&mut self, id: Rc<[NodeKey]>) -> Result<(), &'static str> {
-        self.cmentary.insert(id.clone());
-        self.id_list.remove(&id).ok_or("id not found").map(drop)
-    }
-
-    pub fn get_position(&self, key: Rc<[NodeKey]>) -> usize {
-        self.id_list.range(..key).count()
+    pub fn get_position(&self, id: Arc<[NodeKey]>) -> Option<usize> {
+        self.id_list
+            .binary_search_by(|(probe_id, _)| probe_id.cmp(&id))
+            .ok()
     }
 
     pub fn collect_string(&self) -> String {
-        let mut s = String::new();
-        if self
-            .id_list
-            .first_key_value()
-            .is_none_or(|(_, v)| v.is_none())
-        {
-            s.push_str("<BOS>");
-        }
-        s.extend(self.id_list.values().filter_map(|ch| *ch));
-        if self
-            .id_list
-            .last_key_value()
-            .is_none_or(|(_, v)| v.is_none())
-        {
-            s.push_str("<EOS>");
+        let mut s = String::with_capacity(self.id_list.len());
+        for (_, byte) in self.id_list.iter() {
+            match *byte {
+                BOS_CHAR => s.push_str("<BOS>"),
+                EOS_CHAR => s.push_str("<EOS>"),
+                b => s.push(b as char),
+            }
         }
         s
+    }
+
+    pub fn insert_cmentary(&mut self, id: Arc<[NodeKey]>) {
+        self.cmentary.insert(id);
+    }
+
+    pub fn remove_cmentary(&mut self, id: Arc<[NodeKey]>) {
+        self.cmentary.remove(&id);
+    }
+
+    pub fn insert_id(&mut self, id: Arc<[NodeKey]>, data: u8) -> Result<(), &'static str> {
+        match self
+            .id_list
+            .binary_search_by(|(probe_id, _)| probe_id.cmp(&id))
+        {
+            Ok(_) => Err("Inserted ID already exists"),
+            Err(idx) => {
+                self.id_list.insert(idx, (id, data));
+                Ok(())
+            }
+        }
+    }
+
+    pub fn remove_id(&mut self, id: Arc<[NodeKey]>) -> Result<(), &'static str> {
+        match self
+            .id_list
+            .binary_search_by(|(probe_id, _)| probe_id.cmp(&id))
+        {
+            Ok(idx) => {
+                self.cmentary.insert(id.clone());
+                self.id_list.remove(idx);
+                Ok(())
+            }
+            Err(_) => Err("Removed ID not found"),
+        }
     }
 
     pub fn insert_absolute(
         &mut self,
         peer_id: PeerId,
         absolute_position: usize,
-        data: char,
-    ) -> Result<Rc<[NodeKey]>, &'static str> {
-        let mut keys = self.id_list.keys();
-        let before_key = keys
-            .nth(absolute_position) // because of bos
-            .cloned()
-            .ok_or("missing key before position")?;
-        let after_key = keys.next().cloned().ok_or("missing key after position")?;
+        data: u8,
+    ) -> Result<Arc<[NodeKey]>, &'static str> {
+        let before_key = self
+            .id_list
+            .get(absolute_position)
+            .ok_or("missing key before position")?
+            .0
+            .clone();
+
+        let after_key = self
+            .id_list
+            .get(absolute_position + 1)
+            .ok_or("missing key after position")?
+            .0
+            .clone();
+
         let id = self.generate_id(&before_key, &after_key, peer_id);
-        self.id_list.insert(id.clone(), Some(data));
+
+        self.id_list
+            .insert(absolute_position + 1, (id.clone(), data));
+
         Ok(id)
     }
 
     pub fn remove_absolute(
         &mut self,
         absolute_position: usize,
-    ) -> Result<Rc<[NodeKey]>, &'static str> {
+    ) -> Result<Arc<[NodeKey]>, &'static str> {
         if absolute_position == 0 {
-            return Err("Can't remove outside of document bounds");
+            return Err("Can't remove BOS");
         }
 
-        let id = self
-            .id_list
-            .keys()
-            .nth(absolute_position)
-            .cloned()
-            .ok_or("missing position")?;
-        self.id_list.remove(&id);
+        if absolute_position >= self.id_list.len() {
+            return Err("missing position");
+        }
+        let (id, _) = self.id_list.remove(absolute_position);
+
         self.cmentary.insert(id.clone());
         Ok(id)
     }
@@ -163,11 +185,11 @@ impl Doc {
         p: &[NodeKey],
         q: &[NodeKey],
         peer_id: PeerId,
-    ) -> Rc<[NodeKey]> {
+    ) -> Arc<[NodeKey]> {
         let mut rng = StdRng::from_seed(SEED); // const seed
         // let mut rng = StdRng::from_os_rng();
         let (interval, p_pref, q_pref, depth) = Self::find_interval(p, q);
-        let boundary = BigInt::new(Sign::Plus, vec![self.boundary]);
+        let boundary = BigInt::new(Sign::Plus, vec![DEFAULT_BOUNDARY]);
         let step = min(boundary, interval)
             .to_u32_digits()
             .1
@@ -175,10 +197,7 @@ impl Doc {
             .copied()
             .unwrap_or_default();
         let val = 1 + rng.random_range(0..step);
-        if !self.strategy.contains_key(&depth) {
-            self.strategy.insert(depth, depth % 2 == 1);
-        }
-        let digits = if self.strategy[&depth] {
+        let digits = if depth % 2 == 1 {
             (&p_pref + val).to_u32_digits().1
         } else {
             (&q_pref - val).to_u32_digits().1
@@ -205,7 +224,7 @@ impl Doc {
         (interval, p_pref, q_pref, depth)
     }
 
-    fn construct_id(r: &[Digit], p: &[NodeKey], q: &[NodeKey], peer_id: PeerId) -> Rc<[NodeKey]> {
+    fn construct_id(r: &[Digit], p: &[NodeKey], q: &[NodeKey], peer_id: PeerId) -> Arc<[NodeKey]> {
         let mut once = true;
         let time = now_millis();
         let (mut p_it, mut q_it) = (p.iter(), q.iter());
@@ -233,21 +252,21 @@ impl Doc {
         id.into()
     }
 
-    #[cfg(test)]
-    pub(crate) fn bos_id(&self) -> Rc<[NodeKey]> {
-        self.id_list
-            .first_key_value()
-            .expect("Error: BOS node missing")
-            .0
-            .clone()
-    }
+    // #[cfg(test)]
+    // pub(crate) fn bos_id(&self) -> Arc<[NodeKey]> {
+    //     self.id_list
+    //         .first_key_value()
+    //         .expect("Error: BOS node missing")
+    //         .0
+    //         .clone()
+    // }
 
-    #[cfg(test)]
-    pub(crate) fn eos_id(&self) -> Rc<[NodeKey]> {
-        self.id_list
-            .last_key_value()
-            .expect("Error: EOS node missing")
-            .0
-            .clone()
-    }
+    // #[cfg(test)]
+    // pub(crate) fn eos_id(&self) -> Arc<[NodeKey]> {
+    //     self.id_list
+    //         .last_key_value()
+    //         .expect("Error: EOS node missing")
+    //         .0
+    //         .clone()
+    // }
 }
