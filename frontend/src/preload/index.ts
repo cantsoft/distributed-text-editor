@@ -8,11 +8,20 @@ const api = {
   close: () => ipcRenderer.send("window:close"),
   save: (filename: string) => ipcRenderer.send("user:save"),
   onUserKeydown: (keyData, cursorPos) => ipcRenderer.send("user:keydown", keyData, cursorPos),
-  onRemoveRequest: (callback: (position: number) => void) => { 
-    ipcRenderer.on("remove-request", (_e: any, position: number) => callback(position))
+  onRemoveRequest: (callback: (position: number) => void) => {
+    ipcRenderer.on("remove-request", (_e, position: number) =>
+      callback(position),
+    );
   },
-  onInsertRequest: (callback: (position: number, char: string) => void) => { 
-    ipcRenderer.on("insert-request", (_e, position: number, char: string) => callback(position, char))
+  onInsertRequest: (callback: (position: number, char: string) => void) => {
+    ipcRenderer.on("insert-request", (_e, position: number, char: string) =>
+      callback(position, char),
+    );
+  },
+  onFullSync: (callback: (new_text: string) => void) => {
+    ipcRenderer.on("full-sync-request", (_e, new_text: string) =>
+      callback(new_text),
+    );
   },
 };
 

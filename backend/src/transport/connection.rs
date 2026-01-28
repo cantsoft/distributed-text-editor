@@ -1,4 +1,4 @@
-use super::codec::{PeerMessageCodec, encode_protobuf, try_decode_op};
+use super::codec;
 use crate::types::PeerId;
 use crate::{config, protocol, select_loop, state};
 use futures::{SinkExt, StreamExt};
@@ -22,7 +22,7 @@ pub async fn run_stdin_listener(tx: PacketSender, token: CancellationToken) -> s
         maybe_frame = framed.next() => {
             match maybe_frame {
                 Some(Ok(bytes)) => {
-                    if let Some(cmd) = try_decode_op(bytes) {
+                    if let Some(cmd) = codec::try_decode_op(bytes) {
                         if let Err(e) = tx.send(protocol::NodeEvent::Local(cmd)).await {
                             return Err(std::io::Error::new(ErrorKind::BrokenPipe, e));
                         }
@@ -90,10 +90,10 @@ pub async fn run_discovery(
                             remote_beacon.tcp_port
                         );
 
-                        if let Err(e) = tx.send(protocol::NodeEvent::PeerDiscovered {
+                        if let Err(e) = tx.send(protocol::NodeEvent::Net(protocol::PeerEvent::Discovered {
                             id: remote_beacon.id,
                             addr: peer_tcp_addr
-                        }).await {
+                        })).await {
                             eprintln!("Failed to send PeerDiscovered: {}", e);
                         }
                     }
@@ -122,7 +122,7 @@ pub async fn run_tcp_listener(
             match accept_result {
                 Ok((stream, addr)) => {
                     eprintln!("New incoming TCP connection from: {}", addr);
-                    if let Err(e) = tx.send(protocol::NodeEvent::PeerConnection { stream }).await
+                    if let Err(e) = tx.send(protocol::NodeEvent::Net(protocol::PeerEvent::Connection { stream })).await
                     {
                         eprintln!("Failed to send PeerConnection: {}", e);
                     }
@@ -156,30 +156,42 @@ pub async fn handle_connection(
     doc_state: state::Doc,
     my_id: PeerId,
 ) {
-    if let Err(e) = stream.write_all(&[my_id]).await {
-        eprintln!("Handshake write error: {}", e);
-        return;
+    let peer_id = match async {
+        stream.write_all(&[my_id]).await?;
+        let mut buf = [0u8; 1];
+        stream.read_exact(&mut buf).await?;
+        Ok::<_, std::io::Error>(buf[0])
     }
-
-    let mut buf = [0u8; 1];
-    if let Err(e) = stream.read_exact(&mut buf).await {
-        eprintln!("Handshake read error: {}", e);
-        return;
-    }
-    let peer_id = buf[0];
-    eprintln!("Handshake successful. Connected with peer {}", peer_id);
+    .await
+    {
+        Ok(id) => {
+            eprintln!("Handshake successful. Connected with peer {}", id);
+            id
+        }
+        Err(e) => {
+            eprintln!("Handshake failed: {}", e);
+            return;
+        }
+    };
 
     let (read_half, write_half) = stream.into_split();
-    let mut framed_read = FramedRead::new(read_half, PeerMessageCodec::new());
-    let mut framed_write = FramedWrite::new(write_half, PeerMessageCodec::new());
+    let mut framed_read = FramedRead::new(read_half, codec::PeerSyncOpCodec::new());
+    let mut framed_write = FramedWrite::new(write_half, codec::PeerSyncOpCodec::new());
 
-    let (tx_peer, mut rx_peer) = mpsc::channel::<protocol::PeerSyncOp>(255);
+    if let Err(e) = framed_write
+        .send(protocol::PeerSyncOp::FullSync { state: doc_state })
+        .await
+    {
+        eprintln!("Failed to send initial state to peer {}: {}", peer_id, e);
+        return;
+    }
 
+    let (tx_peer, rx_peer) = mpsc::channel::<protocol::PeerSyncOp>(255);
     if let Err(e) = tx
-        .send(protocol::NodeEvent::PeerConnected {
+        .send(protocol::NodeEvent::Net(protocol::PeerEvent::Connected {
             id: peer_id,
             sender: tx_peer,
-        })
+        }))
         .await
     {
         eprintln!("Failed to send PeerConnected event: {}", e);
@@ -188,21 +200,7 @@ pub async fn handle_connection(
 
     let write_token = token.clone();
     tokio::spawn(async move {
-        select_loop! {
-            _ = write_token.cancelled() => return,
-
-            msg = rx_peer.recv() => {
-                match msg {
-                    Some(m) => {
-                        if let Err(e) = framed_write.send(m).await {
-                            eprintln!("Write error to peer {}: {}", peer_id, e);
-                            break;
-                        }
-                    }
-                    None => break,
-                }
-            }
-        }
+        run_writer_loop(framed_write, rx_peer, write_token, peer_id).await;
     });
 
     select_loop! {
@@ -211,8 +209,7 @@ pub async fn handle_connection(
         frame = framed_read.next() => {
             match frame {
                 Some(Ok(msg)) => {
-                    eprintln!("Received peer message: {:?}", msg);
-                    if let Err(e) = tx.send(protocol::NodeEvent::Network(msg)).await {
+                    if let Err(e) = tx.send(protocol::NodeEvent::Sync(msg)).await {
                         eprintln!("Failed to forward message from peer {}: {}", peer_id, e);
                         break;
                     }
@@ -231,15 +228,40 @@ pub async fn handle_connection(
 
     eprintln!("Disconnected from peer {}", peer_id);
     let _ = tx
-        .send(protocol::NodeEvent::PeerDisconnected { id: peer_id })
+        .send(protocol::NodeEvent::Net(
+            protocol::PeerEvent::Disconnected { id: peer_id },
+        ))
         .await;
 }
 
-pub async fn send_local_op(
-    op: &protocol::LocalOp,
+async fn run_writer_loop(
+    mut framed_write: FramedWrite<tokio::net::tcp::OwnedWriteHalf, codec::PeerSyncOpCodec>,
+    mut rx_peer: mpsc::Receiver<protocol::PeerSyncOp>,
+    token: CancellationToken,
+    peer_id: u8,
+) {
+    select_loop! {
+        _ = token.cancelled() => return,
+
+        msg = rx_peer.recv() => {
+            match msg {
+                Some(m) => {
+                    if let Err(e) = framed_write.send(m).await {
+                        eprintln!("Write error to peer {}: {}", peer_id, e);
+                        return;
+                    }
+                }
+                None => return,
+            }
+        }
+    }
+}
+
+pub async fn send_server_event(
+    event: &protocol::ServerEvent,
     writer: &mut FramedWrite<tokio::io::Stdout, LengthDelimitedCodec>,
 ) {
-    let Ok(bytes) = encode_protobuf(op) else {
+    let Ok(bytes) = codec::encode_protobuf(event) else {
         eprintln!("Protobuf encoding failed");
         return;
     };

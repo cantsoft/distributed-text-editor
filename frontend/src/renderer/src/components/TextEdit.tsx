@@ -4,14 +4,16 @@ import { backdrop_shader } from "@renderer/assets/backdrop_shader";
 
 import "../styles/TextEdit.css";
 
+
 export default function TextEdit(): React.JSX.Element {
   const canvas_ref = useRef<HTMLCanvasElement | null>(null);
   const edit_ref = useRef<HTMLDivElement | null>(null);
   const pending_inserts = useRef(0);
 
   useEffect(() => {
-    if (canvas_ref.current === null 
-      || edit_ref.current === null) { return; }
+    if (canvas_ref.current === null || edit_ref.current === null) {
+      return;
+    }
 
     const sandbox: GlslCanvas = new GlslCanvas(canvas_ref.current);
     sandbox.load(backdrop_shader);
@@ -30,6 +32,27 @@ export default function TextEdit(): React.JSX.Element {
       return textNode as Text;
     };
 
+    const getCaretPosition = (el: HTMLElement): number => {
+      const selection = window.getSelection();
+      if (
+        !selection ||
+        selection.rangeCount === 0 ||
+        !el.contains(selection.anchorNode)
+      ) {
+        return 0;
+      }
+
+      const range = selection.getRangeAt(0);
+      const textNode = ensureStructure(el);
+      if (range.startContainer === textNode) {
+        return range.startOffset;
+      }
+      if (range.startContainer === el) {
+        return range.startOffset === 0 ? 0 : textNode.length;
+      }
+      return textNode.length;
+    };
+
     const setCaret = (textNode: Text, pos: number): void => {
       const selection = window.getSelection();
       const range = document.createRange();
@@ -44,7 +67,28 @@ export default function TextEdit(): React.JSX.Element {
       }
     };
 
-    const removeHandler = (position: number): void => {
+    const replaceContentWithState = (newText: string): void => {
+      const el = edit_ref.current!;
+      const selection = window.getSelection();
+      let savedPos = 0;
+      let hasFocus = false;
+      if (
+        selection &&
+        selection.rangeCount > 0 &&
+        el.contains(selection.anchorNode)
+      ) {
+        savedPos = getCaretPosition(el);
+        hasFocus = true;
+      }
+      el.innerText = newText;
+      if (hasFocus) {
+        const safePos = Math.min(savedPos, newText.length);
+        const newTextNode = ensureStructure(el);
+        setCaret(newTextNode, safePos);
+      }
+    };
+
+    const handlerRemove = (position: number): void => {
       pending_inserts.current = 0;
       if (position <= 0) return;
       const el = edit_ref.current!;
@@ -59,8 +103,7 @@ export default function TextEdit(): React.JSX.Element {
       }
     };
 
-    const insertHandler = (position: number, char: string): void => {
-
+    const handleInsert = (position: number, char: string): void => {
       const el = edit_ref.current!;
       const textNode = ensureStructure(el);
 
@@ -77,8 +120,18 @@ export default function TextEdit(): React.JSX.Element {
       }
     };
 
-    window.api.onRemoveRequest(removeHandler);
-    window.api.onInsertRequest(insertHandler);
+    const handleFullSync = (new_text: string): void => {
+      const currentText = edit_ref.current!.innerText;
+      if (new_text === currentText) {
+        return;
+      }
+      replaceContentWithState(new_text);
+    };
+
+    window.api.onRemoveRequest(handlerRemove);
+    window.api.onInsertRequest(handleInsert);
+    window.api.onFullSync(handleFullSync);
+
 
     const isSupportedChar = (char: string): boolean => {
       if (char.length !== 1) return false;
@@ -87,9 +140,10 @@ export default function TextEdit(): React.JSX.Element {
     };
 
     const handleKeyDown = (event: KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey)
-        && ["c", "a"].includes(event.key)
-      ) { console.error("Unhandled user input"); return; }
+      if ((event.ctrlKey || event.metaKey) && ["c", "a"].includes(event.key)) {
+        console.error("Unhandled user input");
+        return;
+      }
 
       if (event.key.startsWith("Arrow")) {
         pending_inserts.current = 0;
@@ -108,24 +162,20 @@ export default function TextEdit(): React.JSX.Element {
         }
 
         const selection = document.getSelection();
-        if (!selection || selection.rangeCount === 0) { return; }
-
-        if (!selection.isCollapsed) {
-          event.preventDefault();
-          console.error("Selection is not supported");          
+        if (
+          !selection ||
+          selection.rangeCount === 0 ||
+          !selection.isCollapsed
+        ) {
+           if (!selection?.isCollapsed) {
+            event.preventDefault();
+            console.error("Selection range is not supported");
+          }
           return;
         }
 
-        const range = selection.getRangeAt(0);
         const el = edit_ref.current!;
-        const textNode = ensureStructure(el);
-
-        let cursor_pos = 0;
-        if (range.startContainer === textNode) {
-          cursor_pos = range.startOffset;
-        } else {
-          cursor_pos = textNode.length;
-        }
+        const cursor_pos = getCaretPosition(el);
 
         let effective_pos = cursor_pos;
         if (isEnter || isChar) {

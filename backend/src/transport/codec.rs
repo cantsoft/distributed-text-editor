@@ -1,13 +1,13 @@
-use crate::protocol::{LocalCommand, LocalOp, PeerSyncOp};
+use crate::protocol::{ClientCommand, PeerSyncOp, ServerEvent};
 use bytes::{Bytes, BytesMut};
 use prost::Message;
 use tokio_util::codec::{Decoder, Encoder, LengthDelimitedCodec};
 
-pub struct PeerMessageCodec {
+pub struct PeerSyncOpCodec {
     delegate: LengthDelimitedCodec,
 }
 
-impl PeerMessageCodec {
+impl PeerSyncOpCodec {
     pub fn new() -> Self {
         Self {
             delegate: LengthDelimitedCodec::new(),
@@ -15,7 +15,7 @@ impl PeerMessageCodec {
     }
 }
 
-impl Encoder<PeerSyncOp> for PeerMessageCodec {
+impl Encoder<PeerSyncOp> for PeerSyncOpCodec {
     type Error = std::io::Error;
 
     fn encode(&mut self, item: PeerSyncOp, dst: &mut BytesMut) -> Result<(), Self::Error> {
@@ -25,7 +25,7 @@ impl Encoder<PeerSyncOp> for PeerMessageCodec {
     }
 }
 
-impl Decoder for PeerMessageCodec {
+impl Decoder for PeerSyncOpCodec {
     type Item = PeerSyncOp;
     type Error = std::io::Error;
 
@@ -41,8 +41,8 @@ impl Decoder for PeerMessageCodec {
     }
 }
 
-pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<LocalCommand> {
-    match LocalCommand::decode(bytes) {
+pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<ClientCommand> {
+    match ClientCommand::decode(bytes) {
         Ok(cmd) => Some(cmd),
         Err(e) => {
             eprintln!("Invalid protobuf on stdin: {}", e);
@@ -51,7 +51,7 @@ pub fn try_decode_op(bytes: bytes::BytesMut) -> Option<LocalCommand> {
     }
 }
 
-pub fn encode_protobuf(msg: &LocalOp) -> Result<Bytes, prost::EncodeError> {
+pub fn encode_protobuf(msg: &ServerEvent) -> Result<Bytes, prost::EncodeError> {
     let mut buf = BytesMut::with_capacity(msg.encoded_len());
     msg.encode(&mut buf)?;
     Ok(buf.freeze())

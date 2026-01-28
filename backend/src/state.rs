@@ -2,17 +2,18 @@ use crate::types::{
     BOS_CHAR, DEFAULT_BOUNDARY, Digit, EOS_CHAR, MAX_POSITION_DIGIT, MIN_POSITION_DIGIT, PeerId,
     RESERVED_PEER, Timestamp,
 };
-use bincode;
+use itertools::Itertools;
 use num_bigint::{BigInt, Sign};
 use num_traits::One;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
-use std::cmp::{self, min};
-use std::collections::{BTreeMap, HashSet};
+use std::cmp::min;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Write;
 use std::sync::Arc;
+use std::vec;
 
 const SEED: [u8; 32] = [0; 32];
 
@@ -100,12 +101,17 @@ impl Doc {
         s
     }
 
-    pub fn insert_cmentary(&mut self, id: Arc<[NodeKey]>) {
-        self.cmentary.insert(id);
+    pub fn collect_ascii(&self) -> Vec<u8> {
+        self.id_list
+            .iter()
+            .skip(1)
+            .take(self.id_list.len() - 2)
+            .map(|(_, byte)| *byte)
+            .collect()
     }
 
-    pub fn remove_cmentary(&mut self, id: Arc<[NodeKey]>) {
-        self.cmentary.remove(&id);
+    pub fn insert_cmentary(&mut self, id: Arc<[NodeKey]>) {
+        self.cmentary.insert(id);
     }
 
     pub fn insert_id(&mut self, id: Arc<[NodeKey]>, data: u8) -> Result<(), &'static str> {
@@ -178,6 +184,18 @@ impl Doc {
 
         self.cmentary.insert(id.clone());
         Ok(id)
+    }
+
+    pub fn merge_state(&mut self, other: Self) {
+        self.cmentary.extend(other.cmentary);
+        let local_iter = self.id_list.iter().cloned();
+        let remote_iter = other.id_list.into_iter();
+
+        let merged_iter = local_iter.merge(remote_iter);
+
+        let unique_iter = merged_iter.dedup_by(|a, b| a.0 == b.0);
+
+        self.id_list = unique_iter.collect();
     }
 
     pub(crate) fn generate_id(
