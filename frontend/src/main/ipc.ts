@@ -26,6 +26,7 @@ interface FullState {
 
 interface LocalOp {
   position: number;
+  remote: boolean;
   insert?: { value: number } | null;
   remove?: object | null;
 }
@@ -41,13 +42,15 @@ function handleServerEvent(event: ServerEvent): void {
   if (event.op) {
     const op = event.op;
     const pos = op.position ?? 0;
+    const remote = op.remote ?? 0;
     if (op.remove) {
-      main_window!.webContents.send("remove-request", pos);
+      main_window!.webContents.send("remove-request", pos, remote);
     } else if (op.insert) {
       main_window!.webContents.send(
         "insert-request",
         pos,
         String.fromCharCode(op.insert.value),
+        remote,
       );
     }
     return;

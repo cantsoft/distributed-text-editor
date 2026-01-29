@@ -92,32 +92,59 @@ export default function TextEdit(): React.JSX.Element {
       }
     };
 
-    const handlerRemove = (position: number): void => {
-      pending_inserts.current = 0;
+    const handlerRemove = (position: number, is_remote: boolean): void => {
       if (position <= 0) return;
       const el = edit_ref.current!;
       const textNode = ensureStructure(el);
+
+      const selection = window.getSelection();
+      let cursorOffset = -1;
+      if (selection && selection.rangeCount > 0 && selection.anchorNode === textNode) {
+        cursorOffset = selection.anchorOffset;
+      }
+
       try {
         if (position - 1 < textNode.length) {
           textNode.deleteData(position - 1, 1);
         }
-        setCaret(textNode, position - 1);
+
+        if (!is_remote) {
+          pending_inserts.current = 0;
+          setCaret(textNode, position - 1);
+        } else {
+          if (cursorOffset !== -1 && position <= cursorOffset) {
+            setCaret(textNode, cursorOffset - 1);
+          }
+        }
       } catch (e) {
         console.warn(e);
       }
     };
 
-    const handleInsert = (position: number, char: string): void => {
+    const handleInsert = (position: number, char: string, is_remote: boolean): void => {
       const el = edit_ref.current!;
       const textNode = ensureStructure(el);
 
+      const selection = window.getSelection();
+      let cursorOffset = -1;
+      if (selection && selection.rangeCount > 0 && selection.anchorNode === textNode) {
+        cursorOffset = selection.anchorOffset;
+      }
+
       try {
-        pending_inserts.current = Math.max(0, pending_inserts.current - 1);
         const safePos = Math.min(position, textNode.length);
         textNode.insertData(safePos, char);
-        setCaret(textNode, safePos + 1);
-        if (el.scrollHeight > el.clientHeight) {
-          el.scrollTop = el.scrollHeight;
+
+        if (!is_remote) {
+          pending_inserts.current = Math.max(0, pending_inserts.current - 1);
+          setCaret(textNode, safePos + 1);
+          if (el.scrollHeight > el.clientHeight) {
+            el.scrollTop = el.scrollHeight;
+          }
+        } else {
+          if (cursorOffset !== -1 && safePos <= cursorOffset) {
+            setCaret(textNode, cursorOffset + 1);
+          }
         }
       } catch (e) {
         console.warn(e);

@@ -8,14 +8,18 @@ const api = {
   close: () => ipcRenderer.send("window:close"),
   save: (filename: string) => ipcRenderer.send("user:save", filename),
   onUserKeydown: (keyData, cursorPos) => ipcRenderer.send("user:keydown", keyData, cursorPos),
-  onRemoveRequest: (callback: (position: number) => void) => {
-    ipcRenderer.on("remove-request", (_e, position: number) =>
-      callback(position),
+  onRemoveRequest: (
+    callback: (position: number, is_remote: boolean) => void,
+  ) => {
+    ipcRenderer.on("remove-request", (_e, position: number, is_remote: boolean) =>
+        callback(position, is_remote),
     );
   },
-  onInsertRequest: (callback: (position: number, char: string) => void) => {
-    ipcRenderer.on("insert-request", (_e, position: number, char: string) =>
-      callback(position, char),
+  onInsertRequest: (
+    callback: (position: number, char: string, is_remote: boolean) => void,
+  ) => {
+    ipcRenderer.on("insert-request", (_e, position: number, char: string, is_remote: boolean) =>
+      callback(position, char, is_remote),
     );
   },
   onFullSync: (callback: (new_text: string) => void) => {

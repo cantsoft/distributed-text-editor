@@ -28,6 +28,7 @@ message FullState {
 
 message LocalOp {
   uint32 position = 1;
+  bool remote = 2;
   oneof op_type {
     LocalRemove remove = 10;
     LocalInsert insert = 11;

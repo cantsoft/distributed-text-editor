@@ -144,6 +144,7 @@ impl Session {
 
         Some(protocol::server_event::Variant::Op(protocol::LocalOp {
             position: ui_pos as u32,
+            remote: true,
             op_type: Some(protocol::local_op::OpType::Insert(protocol::LocalInsert {
                 value: value as u32,
             })),
@@ -163,6 +164,7 @@ impl Session {
 
         Some(protocol::server_event::Variant::Op(protocol::LocalOp {
             position: pos as u32,
+            remote: true,
             op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
         }))
     }
