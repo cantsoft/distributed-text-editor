@@ -188,14 +188,15 @@ impl Doc {
 
     pub fn merge_state(&mut self, other: Self) {
         self.cmentary.extend(other.cmentary);
+
         let local_iter = self.id_list.iter().cloned();
         let remote_iter = other.id_list.into_iter();
 
-        let merged_iter = local_iter.merge(remote_iter);
-
-        let unique_iter = merged_iter.dedup_by(|a, b| a.0 == b.0);
-
-        self.id_list = unique_iter.collect();
+        self.id_list = local_iter
+            .merge(remote_iter)
+            .dedup_by(|a, b| a.0 == b.0)
+            .filter(|(id, _)| !self.cmentary.contains(id))
+            .collect();
     }
 
     pub(crate) fn generate_id(
