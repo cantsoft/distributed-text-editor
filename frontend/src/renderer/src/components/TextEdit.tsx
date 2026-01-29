@@ -1,11 +1,15 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import GlslCanvas from "glslCanvas";
 import { backdrop_shader } from "@renderer/assets/backdrop_shader";
 
+import "./LoadingScreen"
+
 import "../styles/TextEdit.css";
+import LoadingScreen from "./LoadingScreen";
 
 
 export default function TextEdit(): React.JSX.Element {
+  const [loaded, setLoaded] = useState<boolean>(false);
   const canvas_ref = useRef<HTMLCanvasElement | null>(null);
   const edit_ref = useRef<HTMLDivElement | null>(null);
   const pending_inserts = useRef(0);
@@ -198,6 +202,10 @@ export default function TextEdit(): React.JSX.Element {
     el.addEventListener("mouseup", handleMouse);
     ensureStructure(el);
 
+    setTimeout(() => {
+      setLoaded(true);
+    }, 5000);
+
     return () => {
       el.removeEventListener("keydown", handleKeyDown);
       el.removeEventListener("mouseup", handleMouse);
@@ -207,7 +215,10 @@ export default function TextEdit(): React.JSX.Element {
 
   return (
     <>
-      <canvas ref={canvas_ref} className="glslCanvas" />
+      {
+        !loaded ? ( <LoadingScreen/> ) : ( null )
+      }
+      <canvas ref={canvas_ref} className="glslCanvas"/>
       <div
         ref={edit_ref}
         className="text-field"
