@@ -44,9 +44,9 @@ impl Session {
     pub fn apply_local_op(&mut self, local_op: protocol::LocalOp) -> Option<protocol::PeerSyncOp> {
         let ret = match local_op.op_type.unwrap() {
             protocol::local_op::OpType::Insert(insert) => {
-                self.apply_insert(local_op.position, insert)
+                self.apply_local_insert(local_op.position, insert)
             }
-            protocol::local_op::OpType::Remove(_) => self.apply_remove(local_op.position),
+            protocol::local_op::OpType::Remove(_) => self.apply_local_remove(local_op.position),
         };
         ret
     }
@@ -58,44 +58,21 @@ impl Session {
             PeerSyncOp::Insert {
                 char_id: key,
                 value,
-            } => {
-                let key: Arc<[NodeKey]> = key.into();
-                if let Err(e) = self.doc.insert_id(key.clone(), value) {
-                    eprintln!("Error while inserting character: {}", e);
-                }
-                let pos = self.doc.get_position(key.clone()).unwrap() - 1; //TODO: unwrap
-                server_event::Variant::Op(protocol::LocalOp {
-                    position: pos as u32,
-                    op_type: Some(protocol::local_op::OpType::Insert(protocol::LocalInsert {
-                        value: value as u32,
-                    })),
-                })
-            }
-            PeerSyncOp::Remove { char_id: id } => {
-                let id: Arc<[NodeKey]> = id.into();
-                let pos = self.doc.get_position(id.clone()).unwrap(); //TODO: unwrap
-                self.doc.insert_cmentary(id.clone());
-                if let Err(e) = self.doc.remove_id(id.clone()) {
-                    eprintln!("Error while deleting character: {}", e);
-                }
-                server_event::Variant::Op(protocol::LocalOp {
-                    position: pos as u32,
-                    op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
-                })
-            }
+            } => self.apply_remote_insert(key, value),
+            PeerSyncOp::Remove { char_id: id } => self.apply_remote_remove(id),
             PeerSyncOp::FullSync { state } => {
                 self.doc.merge_state(state);
-                server_event::Variant::State(protocol::FullState {
+                Some(server_event::Variant::State(protocol::FullState {
                     content: self.doc.collect_ascii(),
-                })
+                }))
             }
         };
         protocol::ServerEvent {
-            variant: Some(event_variant),
+            variant: event_variant,
         }
     }
 
-    fn apply_insert(
+    fn apply_local_insert(
         &mut self,
         pos: u32,
         insert: protocol::LocalInsert,
@@ -121,7 +98,7 @@ impl Session {
         }
     }
 
-    fn apply_remove(&mut self, pos: u32) -> Option<protocol::PeerSyncOp> {
+    fn apply_local_remove(&mut self, pos: u32) -> Option<protocol::PeerSyncOp> {
         eprintln!("Remove at position: {}", pos);
         match self.doc.remove_absolute(pos as usize) {
             Ok(id) => {
@@ -137,5 +114,44 @@ impl Session {
         }
     }
 
-    // fn apply_full_sync(&mut self, full_sync: protocol::FullSync) -> Option<protocol::PeerSyncOp> {}
+    fn apply_remote_insert(
+        &mut self,
+        key: Vec<NodeKey>,
+        value: u8,
+    ) -> Option<protocol::server_event::Variant> {
+        let key: Arc<[NodeKey]> = key.into();
+
+        if let Err(e) = self.doc.insert_id(key.clone(), value) {
+            eprintln!("Error while inserting character: {}", e);
+            return None;
+        }
+        let raw_pos = self.doc.get_position(key)?;
+
+        // Bezpieczne odejmowanie
+        let ui_pos = raw_pos.checked_sub(1).unwrap_or(0);
+
+        Some(protocol::server_event::Variant::Op(protocol::LocalOp {
+            position: ui_pos as u32,
+            op_type: Some(protocol::local_op::OpType::Insert(protocol::LocalInsert {
+                value: value as u32,
+            })),
+        }))
+    }
+
+    fn apply_remote_remove(&mut self, id: Vec<NodeKey>) -> Option<protocol::server_event::Variant> {
+        let id: Arc<[NodeKey]> = id.into();
+
+        self.doc.insert_cmentary(id.clone());
+        let pos = self.doc.get_position(id.clone())?;
+
+        if let Err(e) = self.doc.remove_id(id) {
+            eprintln!("Error while deleting character: {}", e);
+            return None;
+        }
+
+        Some(protocol::server_event::Variant::Op(protocol::LocalOp {
+            position: pos as u32,
+            op_type: Some(protocol::local_op::OpType::Remove(protocol::LocalRemove {})),
+        }))
+    }
 }
