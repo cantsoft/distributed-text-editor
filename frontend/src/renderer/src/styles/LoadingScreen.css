@@ -1,4 +1,5 @@
 .loading-screen-container {
+    z-index: 99;
     position: absolute;
     top: 0;
     left: 0;
@@ -10,5 +11,5 @@
     align-items: center;
     justify-content: center;
 
-    background-color: rgb(32, 32, 34, 0.9);
+    background-color: rgb(32, 32, 34);
 }

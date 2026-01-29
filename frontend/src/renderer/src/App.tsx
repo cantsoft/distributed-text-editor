@@ -20,22 +20,12 @@ export default function App(): React.JSX.Element {
 
   return (
     <>
-      <Taskbar onSave={ loaded ? () => setDialogActive(true) : () => { alert("Can't save while loading"); }} />
-      {
-        loaded ? (
-          <>
-            <FileDialog
-              active={dialog_active}
-              onExit={() => setDialogActive(false)}
-            />
-            <TextEdit/>
-          </>
-        ) : (
-          <>
-            <LoadingScreen />
-          </>
-        )
-      }
+      <Taskbar onSave={ () => setDialogActive(true) } />
+      <FileDialog
+        active={dialog_active}
+        onExit={() => setDialogActive(false)}
+      />
+      <TextEdit/>
     </>
   );
 }

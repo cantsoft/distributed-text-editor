@@ -1,7 +1,7 @@
 @import url(./base.css);
 
 .modal-container {
-    z-index: 100;
+    z-index: 99;
     position: absolute;
 
     top: 0;
