@@ -84,7 +84,7 @@ export default function TextEdit(): React.JSX.Element {
         savedPos = getCaretPosition(el);
         hasFocus = true;
       }
-      el.innerText = newText;
+      el.textContent = newText;
       if (hasFocus) {
         const safePos = Math.min(savedPos, newText.length);
         const newTextNode = ensureStructure(el);
@@ -204,7 +204,7 @@ export default function TextEdit(): React.JSX.Element {
 
     setTimeout(() => {
       setLoaded(true);
-    }, 5000);
+    }, 1000);
 
     return () => {
       el.removeEventListener("keydown", handleKeyDown);
