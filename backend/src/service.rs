@@ -99,8 +99,9 @@ async fn handle_events(
                     }
                 }
                 NodeEvent::Sync(sync_op) => {
-                    let server_event = session.apply_peer_sync_op(sync_op);
-                    transport::send_server_event(&server_event, &mut writer).await;
+                    if let Some(server_event) = session.apply_peer_sync_op(sync_op){
+                        transport::send_server_event(&server_event, &mut writer).await;
+                    }
                 }
             }
         }

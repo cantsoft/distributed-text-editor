@@ -51,25 +51,37 @@ impl Session {
         ret
     }
 
-    pub fn apply_peer_sync_op(&mut self, sync_op: protocol::PeerSyncOp) -> protocol::ServerEvent {
+    pub fn apply_peer_sync_op(
+        &mut self,
+        sync_op: protocol::PeerSyncOp,
+    ) -> Option<protocol::ServerEvent> {
         use protocol::{PeerSyncOp, server_event};
 
         let event_variant = match sync_op {
-            PeerSyncOp::Insert {
-                char_id: key,
-                value,
-            } => self.apply_remote_insert(key, value),
-            PeerSyncOp::Remove { char_id: id } => self.apply_remote_remove(id),
+            PeerSyncOp::Insert { char_id, value } => {
+                if let Some(event) = self.apply_remote_insert(char_id, value) {
+                    event
+                } else {
+                    return None;
+                }
+            }
+            PeerSyncOp::Remove { char_id } => {
+                if let Some(event) = self.apply_remote_remove(char_id) {
+                    event
+                } else {
+                    return None;
+                }
+            }
             PeerSyncOp::FullSync { state } => {
                 self.doc.merge_state(state);
-                Some(server_event::Variant::State(protocol::FullState {
+                server_event::Variant::State(protocol::FullState {
                     content: self.doc.collect_ascii(),
-                }))
+                })
             }
         };
-        protocol::ServerEvent {
-            variant: event_variant,
-        }
+        Some(protocol::ServerEvent {
+            variant: Some(event_variant),
+        })
     }
 
     fn apply_local_insert(
@@ -81,7 +93,7 @@ impl Session {
             eprintln!("Err: Invalid char code received: {}", insert.value);
             return None;
         };
-        eprintln!("Insert: {} ({:?})", insert.value, value);
+        eprintln!("Insert: {} ({:?})", value, char::from(value));
 
         match self.doc.insert_absolute(self.local_id, pos as usize, value) {
             Ok(id) => {
