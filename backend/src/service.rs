@@ -125,13 +125,11 @@ fn handle_peer_event(
 
     match event {
         PeerEvent::Discovered { id, addr } => {
-            // Zasada: łączymy się tylko jeśli my_id < id, żeby uniknąć podwójnych połączeń
             if !peers.contains_key(&id) && my_id < id {
                 let tx = tx_loopback.clone();
                 let tok = token.clone();
                 let doc_snapshot = session.get_doc_snapshot();
 
-                // connect_to_peer zwraca Future, więc wrzucamy go w spawn
                 tokio::spawn(transport::connect_to_peer(
                     addr,
                     tx,

@@ -63,7 +63,7 @@ impl Session {
                 if let Err(e) = self.doc.insert_id(key.clone(), value) {
                     eprintln!("Error while inserting character: {}", e);
                 }
-                let pos = self.doc.get_position(key.clone()).unwrap(); //TODO: unwrap
+                let pos = self.doc.get_position(key.clone()).unwrap() - 1; //TODO: unwrap
                 server_event::Variant::Op(protocol::LocalOp {
                     position: pos as u32,
                     op_type: Some(protocol::local_op::OpType::Insert(protocol::LocalInsert {
