@@ -47,7 +47,10 @@ export default function FileDialog({
                     <h3>Filename:</h3>
                     <div contentEditable="true" className="text-input" ref={ email_input_ref }></div>                    
                 </div>
-                <div className="save-btn" onClick={ onSave }>Save</div>
+                <div className="save-btn" onClick={ () => {
+                    onExit();
+                    onSave();
+                    } }>Save</div>
             </div>
         </div>
     )

@@ -1,4 +1,3 @@
-use crate::protocol::PeerEvent;
 use crate::session::Session;
 use crate::types::PeerId;
 use crate::{config, protocol, select_loop, transport};
@@ -57,7 +56,7 @@ async fn handle_events(
     let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
     let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerSyncOp>> = HashMap::new();
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     let init_sync = protocol::ServerEvent {
         variant: Some(protocol::server_event::Variant::State(
             protocol::FullState {
@@ -81,55 +80,83 @@ async fn handle_events(
             };
             use protocol::NodeEvent;
             match event {
-                NodeEvent::Net(sync_op) => {
-                    match sync_op {
-                        PeerEvent::Discovered { id, addr } => {
-                            if !peers.contains_key(&id) && my_id < id {
-                                let tx = tx_loopback.clone();
-                                let tok = token.clone();
-                                let doc_snapshot = session.get_doc_snapshot();
-                                tokio::spawn(transport::connect_to_peer(addr, tx, tok,doc_snapshot, my_id));
-                            }
-                        }
-                        PeerEvent::Connection { stream } => {
-                            let tx_connect = tx_loopback.clone();
-                            let token_connect = token.clone();
-                            let doc_snapshot = session.get_doc_snapshot();
-                            tokio::spawn(async move {
-                                transport::handle_connection(stream, tx_connect, token_connect, doc_snapshot, my_id).await;
-                            });
-                        },
-                        PeerEvent::Connected { id, sender } => {
-                            peers.insert(id, sender);
-                        }
-                        PeerEvent::Disconnected { id } => {
-                            peers.remove(&id);
-                        }
-                    }
+                NodeEvent::Net(event) => {
+                    handle_peer_event(event, &mut peers, &session, &tx_loopback, &token, my_id);
                 },
                 NodeEvent::Local(protocol::ClientCommand{variant}) => {
                     match variant.unwrap() {
                         protocol::client_command::Variant::Edit(local_op) => handle_local_op(&mut session, local_op, &peers, &mut writer).await,
-                        protocol::client_command::Variant::Save(_) => todo!(),
+                        protocol::client_command::Variant::Save(protocol::SaveDocument{ filename }) => {
+                            eprintln!("{}", filename);
+                            if let Err(e)  = session.save_text(format!("./native/{}", filename).as_str()) {
+                                eprintln!("Failed to save file: {}", e)
+                            };
+                        },
                         protocol::client_command::Variant::Close(_) => {
                             token.cancel();
                             break 'main_loop;
                         },
                     }
                 }
-                NodeEvent::Sync(msg) => {
-                    let server_event = session.apply_peer_sync_op(msg);
+                NodeEvent::Sync(sync_op) => {
+                    let server_event = session.apply_peer_sync_op(sync_op);
                     transport::send_server_event(&server_event, &mut writer).await;
                 }
             }
         }
     }
 
-    if let Err(e) = session.save_to_path(save_path) {
+    if let Err(e) = session.save_bytes(save_path) {
         eprintln!("Failed to write {}: {}", save_path, e);
     }
 
     Ok(())
+}
+
+fn handle_peer_event(
+    event: protocol::PeerEvent,
+    peers: &mut HashMap<PeerId, mpsc::Sender<protocol::PeerSyncOp>>,
+    session: &Session,
+    tx_loopback: &mpsc::Sender<protocol::NodeEvent>,
+    token: &tokio_util::sync::CancellationToken,
+    my_id: PeerId,
+) {
+    use protocol::PeerEvent;
+
+    match event {
+        PeerEvent::Discovered { id, addr } => {
+            // Zasada: łączymy się tylko jeśli my_id < id, żeby uniknąć podwójnych połączeń
+            if !peers.contains_key(&id) && my_id < id {
+                let tx = tx_loopback.clone();
+                let tok = token.clone();
+                let doc_snapshot = session.get_doc_snapshot();
+
+                // connect_to_peer zwraca Future, więc wrzucamy go w spawn
+                tokio::spawn(transport::connect_to_peer(
+                    addr,
+                    tx,
+                    tok,
+                    doc_snapshot,
+                    my_id,
+                ));
+            }
+        }
+        PeerEvent::Connection { stream } => {
+            let tx = tx_loopback.clone();
+            let tok = token.clone();
+            let doc_snapshot = session.get_doc_snapshot();
+
+            tokio::spawn(async move {
+                transport::handle_connection(stream, tx, tok, doc_snapshot, my_id).await;
+            });
+        }
+        PeerEvent::Connected { id, sender } => {
+            peers.insert(id, sender);
+        }
+        PeerEvent::Disconnected { id } => {
+            peers.remove(&id);
+        }
+    }
 }
 
 async fn handle_local_op(

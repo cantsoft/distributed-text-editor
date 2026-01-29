@@ -75,11 +75,11 @@ impl Doc {
     }
 
     pub fn save_text(&self, path: &str) -> std::io::Result<()> {
-        let content = self.collect_string();
+        let content = self.collect_ascii();
         let mut file = File::create(path)?;
         // Add UTF-8 BOM
         file.write_all(b"\xEF\xBB\xBF")?;
-        file.write_all(content.as_bytes())?;
+        file.write_all(content.as_slice())?;
         Ok(())
     }
 

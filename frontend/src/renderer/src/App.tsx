@@ -2,7 +2,7 @@ import React, { useState } from "react";
 
 import Taskbar from "./components/Taskbar";
 import TextEdit from "./components/TextEdit";
-import FileDialog from "./components/Filedialog";
+import FileDialog from "./components/FileDialog";
 
 import "./styles/Taskbar.css";
 import "./styles/TextEdit.css";

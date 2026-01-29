@@ -153,7 +153,7 @@ export async function onKeyDown(
 /**************************************************************************************************/
 
 export function onSave(filename: string): void {
-  sendLocalCommand(ClientCommandFrame!.create({ save: { path: filename } }));
+  sendLocalCommand(ClientCommandFrame!.create({ save: { filename: filename } }));
 }
 
 /**************************************************************************************************/

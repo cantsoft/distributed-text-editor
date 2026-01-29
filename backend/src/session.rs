@@ -32,9 +32,13 @@ impl Session {
         self.doc.collect_ascii()
     }
 
-    pub fn save_to_path(&self, path: &str) -> std::io::Result<()> {
+    pub fn save_bytes(&self, path: &str) -> std::io::Result<()> {
         let bytes = self.doc.save_bytes()?;
         std::fs::write(path, bytes)
+    }
+
+    pub fn save_text(&self, path: &str) -> std::io::Result<()> {
+        self.doc.save_text(path)
     }
 
     pub fn apply_local_op(&mut self, local_op: protocol::LocalOp) -> Option<protocol::PeerSyncOp> {
