@@ -30,3 +30,6 @@ to run the project with npm package preinstallation or
 python scripts/run.py
 ```
 to skip the npm package checks.
+
+## Firewall fix
+sudo firewall-cmd --zone=public --add-port=1234/tcp
