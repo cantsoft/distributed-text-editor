@@ -57,7 +57,7 @@ async fn handle_events(
     let mut writer = FramedWrite::new(tokio::io::stdout(), LengthDelimitedCodec::new());
     let mut peers: HashMap<PeerId, mpsc::Sender<protocol::PeerSyncOp>> = HashMap::new();
 
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     let init_sync = protocol::ServerEvent {
         variant: Some(protocol::server_event::Variant::State(
             protocol::FullState {

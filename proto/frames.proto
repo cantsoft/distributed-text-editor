@@ -16,7 +16,9 @@ message ServerEvent {
   }
 }
 
-message SaveDocument {}
+message SaveDocument {
+  string path = 1;
+}
 
 message CloseApplication {}
 
