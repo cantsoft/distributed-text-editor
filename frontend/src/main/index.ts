@@ -8,6 +8,7 @@ import {
   onKeyDown,
   updateBackendWindowReference,
   onExit,
+  onSave,
 } from "./ipc";
 
 let main_window: BrowserWindow | null = null;
@@ -36,6 +37,7 @@ function createWindow(): void {
     else { main_window!.maximize(); }
   });
   ipcMain.on("user:keydown", (_event: any, key_data: string, cursor_pos: number) => { onKeyDown(key_data, cursor_pos); });
+  ipcMain.on("user:save", (_event: any, filename: string) => { onSave(filename); });
   
   main_window.on('ready-to-show', () => { main_window!.show() });
 
@@ -61,8 +63,8 @@ app.whenReady().then(() => {
 
   app.on('browser-window-created', (_, window) => { optimizer.watchWindowShortcuts(window); });
 
-  runBackendService().catch((err) => console.error(err)); 
   createWindow();
+  runBackendService().catch((err) => console.error(err)); 
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) { createWindow(); }
