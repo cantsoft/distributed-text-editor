@@ -269,21 +269,21 @@ impl Doc {
         id.into()
     }
 
-    // #[cfg(test)]
-    // pub(crate) fn bos_id(&self) -> Arc<[NodeKey]> {
-    //     self.id_list
-    //         .first_key_value()
-    //         .expect("Error: BOS node missing")
-    //         .0
-    //         .clone()
-    // }
+    #[cfg(test)]
+    pub(crate) fn bos_id(&self) -> Arc<[NodeKey]> {
+        self.id_list
+            .front()
+            .expect("Error: BOS node missing")
+            .0
+            .clone()
+    }
 
-    // #[cfg(test)]
-    // pub(crate) fn eos_id(&self) -> Arc<[NodeKey]> {
-    //     self.id_list
-    //         .last_key_value()
-    //         .expect("Error: EOS node missing")
-    //         .0
-    //         .clone()
-    // }
+    #[cfg(test)]
+    pub(crate) fn eos_id(&self) -> Arc<[NodeKey]> {
+        self.id_list
+            .back()
+            .expect("Error: EOS node missing")
+            .0
+            .clone()
+    }
 }

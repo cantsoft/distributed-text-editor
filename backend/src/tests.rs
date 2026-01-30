@@ -2,9 +2,9 @@ use crate::state::{Doc, NodeKey};
 use crate::types::{Digit, PeerId};
 use serde::Deserialize;
 use std::iter;
-use std::rc::Rc;
+use std::sync::Arc;
 
-fn from_digits(digits: &[Digit]) -> Rc<[NodeKey]> {
+fn from_digits(digits: &[Digit]) -> Arc<[NodeKey]> {
     digits
         .iter()
         .map(|digit| NodeKey::new(*digit, 0, 0))
@@ -36,16 +36,16 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
         println!("after: {:?}", new_id);
         new_id = doc.generate_id(&new_id, &eos, peer_id);
         println!("new_id: {:?}\n", new_id);
-        doc.insert_id(new_id.clone(), ch)?;
+        doc.insert_id(new_id.clone(), ch as u8)?;
         ids.push(new_id.clone());
     }
-    let doc_str = doc.collect_string();
+    let doc_str = String::from_utf8(doc.collect_ascii()).unwrap();
     assert_eq!(test_str, doc_str);
     for (id, ch) in iter::zip(ids, test_str.chars()) {
         println!("removing: {}", ch);
         doc.remove_id(id)?;
     }
-    let doc_str = doc.collect_string();
+    let doc_str = String::from_utf8(doc.collect_ascii()).unwrap();
     assert_eq!("", doc_str);
     Ok(())
 }
@@ -54,10 +54,10 @@ pub fn insert_delete_collect_test() -> Result<(), &'static str> {
 pub fn insert_absolute_test() -> Result<(), &'static str> {
     let peer_id: PeerId = 123;
     let mut doc = Doc::new();
-    doc.insert_absolute(peer_id, 0, 'a')?;
-    doc.insert_absolute(peer_id, 1, 'c')?;
-    doc.insert_absolute(peer_id, 1, 'b')?;
-    let doc_str = doc.collect_string();
+    doc.insert_absolute(peer_id, 0, b'a')?;
+    doc.insert_absolute(peer_id, 1, b'c')?;
+    doc.insert_absolute(peer_id, 1, b'b')?;
+    let doc_str = String::from_utf8(doc.collect_ascii()).unwrap();
     assert_eq!("abc", doc_str);
     Ok(())
 }
@@ -74,14 +74,14 @@ pub fn remove_absolute_test() -> Result<(), &'static str> {
         println!("ch: {}", ch);
         new_id = doc.generate_id(&new_id, &eos, peer_id);
         println!("new_id: {:?}\n", &new_id);
-        doc.insert_id(new_id.clone(), ch)?;
+        doc.insert_id(new_id.clone(), ch as u8)?;
         ids.push(new_id.clone());
     }
     (0..=test_str.len())
         .rev()
         .filter(|i| i % 2 == 1)
         .try_for_each(|i| doc.remove_absolute(i).map(drop))?;
-    let doc_str = doc.collect_string();
+    let doc_str = String::from_utf8(doc.collect_ascii()).unwrap();
     assert_eq!("abcdefg", doc_str);
     Ok(())
 }
@@ -90,17 +90,17 @@ pub fn remove_absolute_test() -> Result<(), &'static str> {
 pub fn insert_remove_absolute_test() -> Result<(), &'static str> {
     let peer_id: PeerId = 123;
     let mut doc = Doc::new();
-    doc.insert_absolute(peer_id, 0, 'a')?;
-    doc.insert_absolute(peer_id, 1, 'b')?;
-    doc.insert_absolute(peer_id, 2, 'c')?;
-    doc.insert_absolute(peer_id, 3, 'd')?;
-    doc.insert_absolute(peer_id, 4, 'e')?;
+    doc.insert_absolute(peer_id, 0, b'a')?;
+    doc.insert_absolute(peer_id, 1, b'b')?;
+    doc.insert_absolute(peer_id, 2, b'c')?;
+    doc.insert_absolute(peer_id, 3, b'd')?;
+    doc.insert_absolute(peer_id, 4, b'e')?;
     doc.remove_absolute(1)?; // bcde
     doc.remove_absolute(4)?; // bcd
     doc.remove_absolute(1)?; // cd
     doc.remove_absolute(2)?; // c
     // doc.remove_absolute(0); // EOS could be removed
-    let doc_str = doc.collect_string();
+    let doc_str = String::from_utf8(doc.collect_ascii()).unwrap();
     assert_eq!("c", doc_str);
     Ok(())
 }
@@ -150,7 +150,7 @@ pub fn relative_insert_remove_test() {
 
     let mut doc = Doc::new();
     // ids maps op_index -> NodeKey. Use Option because Remove ops don't produce a NodeKey.
-    let mut ids: Vec<Option<Rc<[NodeKey]>>> = Vec::new();
+    let mut ids: Vec<Option<Arc<[NodeKey]>>> = Vec::new();
     let eos = doc.eos_id();
     let bos = doc.bos_id();
 
@@ -174,7 +174,7 @@ pub fn relative_insert_remove_test() {
                 let peer_id = insert_op.peer_id as PeerId;
                 let new_id = doc.generate_id(&left_id, &right_id, peer_id);
                 ids.push(Some(new_id.clone()));
-                doc.insert_id(new_id, insert_op.char)
+                doc.insert_id(new_id, insert_op.char as u8)
                     .expect("Insert failed");
             }
             Operation::Remove(remove_op) => {
@@ -187,7 +187,7 @@ pub fn relative_insert_remove_test() {
             }
         }
     }
-    let text = doc.collect_string();
+    let text = String::from_utf8(doc.collect_ascii()).unwrap();
     println!("Final text: {}", text);
     assert_eq!(text, data_wrapper.result);
 }
